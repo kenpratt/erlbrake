@@ -37,7 +37,8 @@ end.</code></pre>
 
 5. Add the erlhoptoad ebin directory to your Erlang path: @-pa path/to/erlhoptoad/ebin@
 6. Start ibrowse during your application startup: @application:start(ibrowse)@
-7. Test it out!
+7. Compile erlhoptoad: @cd path/to/erlhoptoad/ && make@
+8. Test it out!
 
 h2. Macro
 
