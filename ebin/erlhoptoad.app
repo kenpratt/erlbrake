@@ -1,7 +1,7 @@
 {application, erlhoptoad,
  [
-  {description, ""},
-  {vsn, "1"},
+  {description, "erlhoptoad"},
+  {vsn, "0.1"},
   {modules, [
              erlhoptoad_app,
              erlhoptoad_sup,
