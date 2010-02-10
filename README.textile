@@ -1,0 +1,49 @@
+h1. erlhoptoad
+
+An Erlang Hoptoad notification client.
+
+h2. Requirements
+
+* "ibrowse":http://github.com/cmullaparthi/ibrowse for HTTP requests
+
+h2. Usage
+
+1. Sign up for "Hoptoad":http://hoptoadapp.com/pages/home
+2. Create a Hoptoad project, and copy the API key
+3. Add hoptoad to your application supervision tree:
+
+<pre><code>{hoptoad,
+    {hoptoad, start_link, ["production", "76fdb93ab2cf276ec080671a8b3d3866"]},
+    permanent, 5000, worker, dynamic}.</code></pre>
+
+4. Add hoptoad hooks:
+
+<pre><code>case calculate_something() of
+    {ok, Value} ->
+        Value;
+    Error = {error, Reason} ->
+        hoptoad:notify(error, Reason, "Frobber calculation failed", ?MODULE, ?LINE)
+    end.</code></pre>
+
+and/or:
+
+<pre><code>try do_stuff() of
+    Value ->
+        Value
+catch
+    Type:Reason ->
+        hoptoad:notify(Type, Reason, "Ahhh! Stuff is not good!", ?MODULE, ?LINE, erlang:get_stacktrace())
+end.</code></pre>
+
+5. Add the erlhoptoad ebin directory to your Erlang path (@-pa path/to/erlhoptoad/ebin@)
+6. Start ibrowse during your application startup (@application:start(ibrowse)@)
+7. Test it out!
+
+h2. Macro
+
+A macro similar to this is likely useful to avoid duplication:
+
+<pre><code>-define(NOTIFY_HOPTOAD(Type, Reason, Message),
+        hoptoad:notify(Type, Reason, Message, ?MODULE, ?LINE, erlang:get_stacktrace())).</code></pre>
+
+If you already have a macro to log errors, just add it to that :)
