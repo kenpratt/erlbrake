@@ -1,4 +1,4 @@
-%%% Author: Ken Pratt <kpratt@pugpharm.com>
+%%% Author: Ken Pratt <ken@kenpratt.net>
 %%% Created: 2010-02-09
 
 %%% A bridge to the Hoptoad exception notification service
