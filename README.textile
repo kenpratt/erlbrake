@@ -1,6 +1,6 @@
 h1. erlhoptoad
 
-An Erlang Hoptoad notification client.
+An Erlang client for the "Hoptoad":http://hoptoadapp.com/ exception notification service.
 
 h2. Requirements
 
@@ -8,7 +8,7 @@ h2. Requirements
 
 h2. Usage
 
-1. Sign up for "Hoptoad":http://hoptoadapp.com/pages/home
+1. Sign up for "Hoptoad":http://hoptoadapp.com/
 2. Create a Hoptoad project, and copy the API key
 3. Add hoptoad to your application supervision tree:
 
