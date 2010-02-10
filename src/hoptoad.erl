@@ -8,7 +8,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/2, notify/6]).
+-export([start_link/2, notify/5, notify/6]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -26,6 +26,10 @@
 
 start_link(Environment, ApiKey) when is_list(Environment), is_list(ApiKey) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [Environment, ApiKey], []).
+
+notify(Type, Reason, Message, Module, Line)
+  when is_atom(Module), is_integer(Line) ->
+    notify(Type, Reason, Message, Module, Line, []).
 
 notify(Type, Reason, Message, Module, Line, Stacktrace)
   when is_atom(Module), is_integer(Line), is_list(Stacktrace) ->
