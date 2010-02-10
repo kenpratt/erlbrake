@@ -23,7 +23,7 @@ h2. Usage
         Value;
     Error = {error, Reason} ->
         hoptoad:notify(error, Reason, "Frobber calculation failed", ?MODULE, ?LINE)
-    end.</code></pre>
+end.</code></pre>
 
 and/or:
 
