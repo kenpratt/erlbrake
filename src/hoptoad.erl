@@ -83,7 +83,8 @@ generate_xml({exception, _Type, Reason, Message, Module, Line, Stacktrace},
              {message, [Message]},
              {backtrace, stacktrace_to_xml_struct([{Module, Line}|Stacktrace])}]},
            {'server-environment',
-            [{'environment-name', [Environment]}]}]}],
+            [{'environment-name', [Environment]}]
+           }]}],
     lists:flatten(xmerl:export_simple(Data, xmerl_xml)).
 
 stacktrace_to_xml_struct(Stacktrace) when is_list(Stacktrace) ->

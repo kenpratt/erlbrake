@@ -35,9 +35,9 @@ catch
         hoptoad:notify(Type, Reason, "Ahhh! Stuff is not good!", ?MODULE, ?LINE, erlang:get_stacktrace())
 end.</code></pre>
 
-5. Add the erlhoptoad ebin directory to your Erlang path: @-pa path/to/erlhoptoad/ebin@
-6. Start ibrowse during your application startup: @application:start(ibrowse)@
-7. Compile erlhoptoad: @cd path/to/erlhoptoad/ && make@
+5. Compile erlhoptoad: @cd path/to/erlhoptoad/ && make@
+6. Add the erlhoptoad ebin directory to your Erlang path: @-pa path/to/erlhoptoad/ebin@
+7. Start ibrowse during your application startup: @application:start(ibrowse)@
 8. Test it out!
 
 h2. Macro
