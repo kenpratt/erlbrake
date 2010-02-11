@@ -3,7 +3,7 @@
 -behaviour(supervisor).
 
 %% API
--export([start_link/0]).
+-export([start_link/2]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -15,13 +15,13 @@
 %% API functions
 %% ===================================================================
 
-start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+start_link(Environment, ApiKey) ->
+    supervisor:start_link({local, ?MODULE}, ?MODULE, [Environment, ApiKey]).
 
 %% ===================================================================
 %% Supervisor callbacks
 %% ===================================================================
 
-init([]) ->
-    Hoptoad = ?CHILD(hoptoad, worker, ["production", "76fdb93ab2cf276ec080671a8b3d3866"]),
+init([Environment, ApiKey]) ->
+    Hoptoad = ?CHILD(hoptoad, worker, [Environment, ApiKey]),
     {ok, { {one_for_one, 5, 10}, [Hoptoad]} }.

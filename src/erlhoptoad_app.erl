@@ -10,7 +10,9 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
-    erlhoptoad_sup:start_link().
+    {ok, Environment} = application:get_env(environment),
+    {ok, ApiKey} = application:get_env(apikey),
+    erlhoptoad_sup:start_link(Environment, ApiKey).
 
 stop(_State) ->
     ok.

@@ -13,5 +13,8 @@
                   stdlib
                  ]},
   {mod, { erlhoptoad_app, []}},
-  {env, []}
+  {env, [
+   {apikey, "ENTER_API_KEY"},
+   {environment, "development"}
+  ]}
  ]}.
