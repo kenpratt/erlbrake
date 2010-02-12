@@ -25,8 +25,7 @@ handle_event({error, Gleader, {Pid, Format, Data}}, State) ->
 
 % Generated when error_report/1,2 is called
 handle_event({error_report, Gleader, {Pid, Type, Report}}, State) ->
-  Format = lists:flatten(io_lib:write(Report)),
-  hoptoad_notify(error_report, Type, Format, ?MODULE, ?LINE),
+  hoptoad_notify(error_report, Type, Report, ?MODULE, ?LINE),
 
   {ok, State};
 
