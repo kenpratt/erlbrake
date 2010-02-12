@@ -18,13 +18,13 @@ hoptoad_notify(Type, Reason, Message, Module, Line) ->
 init(_InitArgs) -> {ok, []}.
 
 % Generated when error_msg/1,2 or format is called
-handle_event({error, Gleader, {Pid, Format, Data}}, State) -> 
+handle_event({error, _Gleader, {_Pid, Format, Data}}, State) -> 
   Message = io_lib:format(Format, Data),
   hoptoad_notify(error, error_msg, Message, ?MODULE, ?LINE),
   {ok, State};
 
 % Generated when error_report/1,2 is called
-handle_event({error_report, Gleader, {Pid, Type, Report}}, State) ->
+handle_event({error_report, _Gleader, {_Pid, Type, Report}}, State) ->
   hoptoad_notify(error_report, Type, Report, ?MODULE, ?LINE),
 
   {ok, State};
@@ -46,7 +46,7 @@ handle_call(_Request, State) ->
 handle_info(_Info, State) ->
   {ok, State}.
   
-terminate(_Arg, State) ->
+terminate(_Arg, _State) ->
   ok.
 
 code_change(_OldVsn, State, _Extra) ->
