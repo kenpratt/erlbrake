@@ -48,7 +48,17 @@ handle_call(_Request, _From, State) ->
 
 handle_cast(Raw = {exception, _Type, _Reason, _Message, _Module, _Line, _Stacktrace}, State) ->
     Xml = generate_xml(Raw, State),
-    ok = send_to_hoptoad(Xml),
+    case send_to_hoptoad(Xml) of
+        ok ->
+            noop;
+        {error, {unexpected_response_status, "422"}} ->
+            Reason = "The submitted notice was invalid - please ensure the API key is correct. If it is, it could be a bug in the erlhoptoad XML generation.",
+            io:format("Erlhoptoad notification failed: ~s~n~p~n", [Reason, Xml]);
+        {error, Reason} ->
+            %% can't generate an error report, because if the erlhoptoad error
+            %% logger is being used, it will create an infinite failure loop.
+            io:format("Erlhoptoad notification failed: ~1024p~n", [Reason])
+    end,
     {noreply, State};
 
 handle_cast(_Msg, State) ->
