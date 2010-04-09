@@ -10,13 +10,39 @@ h2. Usage
 
 1. Sign up for "Hoptoad":http://hoptoadapp.com/
 2. Create a Hoptoad project, and copy the API key
-3. Add hoptoad to your application supervision tree:
+3. Proceed with "Running the Erlhoptoad application" or "Embedding Erlhoptoad in an existing application"
+
+h3. Running the Erlhoptoad application
+
+1. Compile erlhoptoad: @cd path/to/erlhoptoad/ && make@
+2. Start the erlhoptoad application, replacing the API key with your own:
+
+<pre><code>ERL_LIBS="path/to/ibrowse:path/to/erlhoptoad:$ERL_LIBS" erl -erlhoptoad apikey '"76fdb93ab2cf276ec080671a8b3d3866"' -erlhoptoad error_logger true -erlhoptoad environment '"development"' -s erlhoptoad start</code></pre>
+
+3. Try generating a couple of error reports:
+
+<pre><code>1> hoptoad:notify(error, fake, "Testing erlhoptoad with a manual error report", no_module, 0).
+ok
+2> error_logger:error_msg("A sample error caught by the erlhoptoad error logger.").
+...</code></pre>
+
+4. Configure erlhoptoad: three configuration options are supported: @apikey@, @environment@, and @error_logger@
+
+* @apikey@ - Set this to the API key of your Hoptoad project (String).
+* @environment@ - The Hoptoad environment that errors will be reported under (String).
+* @error_logger@ - Set to @true@ to enable the erlhoptoad error_logger (Boolean). The erlhoptoad error logger will intergrate with the existing Erlang/OTP error logging, notifying hoptoad of any runtime errors in your application. The upside is that it can catch things that manual hoptoad notification can't.
+
+These configuration options can be set in @ebin/erlhoptoad.app@, or configured on the command line as in the above example.
+
+h3. Embedding Erlhoptoad in an existing application
+
+1. Add hoptoad to your application supervision tree:
 
 <pre><code>{hoptoad,
     {hoptoad, start_link, ["production", "76fdb93ab2cf276ec080671a8b3d3866"]},
     permanent, 5000, worker, dynamic}.</code></pre>
 
-4. Add hoptoad hooks:
+2. Add hoptoad hooks:
 
 <pre><code>case calculate_something() of
     {ok, Value} ->
@@ -35,10 +61,13 @@ catch
         hoptoad:notify(Type, Reason, "Ahhh! Stuff is not good!", ?MODULE, ?LINE, erlang:get_stacktrace())
 end.</code></pre>
 
-5. Compile erlhoptoad: @cd path/to/erlhoptoad/ && make@
-6. Add the erlhoptoad ebin directory to your Erlang path: @-pa path/to/erlhoptoad/ebin@
-7. Start ibrowse during your application startup: @application:start(ibrowse)@
-8. Test it out!
+3. Compile erlhoptoad: @cd path/to/erlhoptoad/ && make@
+4. Add the erlhoptoad ebin directory to your Erlang path: @-pa path/to/erlhoptoad/ebin@
+5. Start ibrowse during your application startup: @application:start(ibrowse)@
+6. Test it out!
+7. (Optional) Add the erlhoptoad error logger to your application startup:
+
+<pre><code>error_logger:add_report_handler(erlhoptoad_error_logger)</code></pre>
 
 h2. Macro
 
