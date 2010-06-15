@@ -8,7 +8,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/2, notify/5, notify/6]).
+-export([start_link/2, notify/5, notify/6, notify/7, notify/8]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -27,13 +27,38 @@
 start_link(Environment, ApiKey) when is_list(Environment), is_list(ApiKey) ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [Environment, ApiKey], []).
 
-notify(Type, Reason, Message, Module, Line)
-  when is_atom(Module), is_integer(Line) ->
-    notify(Type, Reason, Message, Module, Line, []).
+notify(Type, Reason, Message, Module, Line) ->
+  notify(Type, Reason, Message, Module, Line, []).
 
-notify(Type, Reason, Message, Module, Line, Stacktrace)
-  when is_atom(Module), is_integer(Line), is_list(Stacktrace) ->
-    gen_server:cast(?SERVER, {exception, Type, Reason, Message, Module, Line, Stacktrace}).
+notify(Type, Reason, Message, Module, Line, Stacktrace) ->
+  notify(Type, Reason, Message, Module, Line, Stacktrace, no_request).
+
+%%
+% Stacktrace = [MFA]
+% MFA =        {Module, Line} |
+%              {Module, Function, Arbitary} |
+%              {Module, Function, [Argument]} |
+%
+% Module = Function = atom()
+% Arbitary = Line = integer()
+% 
+%
+% Request = no_request |
+%           {Url, CgiVars}
+%           {Url, Component, CgiVars} |
+%           {Url, Component, Action, CgiVars}
+% Url = Component = Action = Key = Value = string()
+% CgiVars = [{Key, Value}]
+%
+% Request = none | string()
+notify(Type, Reason, Message, Module, Line, Stacktrace, Request) ->
+  notify(Type, Reason, Message, Module, Line, Stacktrace, Request, none).
+    
+notify(Type, Reason, Message, Module, Line, Stacktrace, Request, ProjectRoot)
+  when is_atom(Module), is_integer(Line), is_list(Stacktrace),
+        Request =:= no_request orelse is_tuple(Request) ->
+    gen_server:cast(?SERVER, {exception, Type, Reason, Message, Module, Line, Stacktrace, Request, ProjectRoot}).
+
 
 %%====================================================================
 %% gen_server callbacks
@@ -45,8 +70,13 @@ init([Environment, ApiKey]) ->
 handle_call(_Request, _From, State) ->
     Reply = ok,
     {reply, Reply, State}.
-
-handle_cast(Raw = {exception, _Type, _Reason, _Message, _Module, _Line, _Stacktrace}, State) ->
+    
+% Old version, for backwardcompatiblity (old versions, full inbox, ...)
+handle_cast({exception, Type, Reason, Message, Module, Line, Stacktrace}, State) ->
+    handle_cast({exception, Type, Reason, Message, Module, Line, Stacktrace, no_request, none}, State);
+    
+% New Version with additional Request + ProjectRoot
+handle_cast(Raw = {exception, _Type, _Reason, _Message, _Module, _Line, _Stacktrace, _Request, _ProjectRoot}, State) ->
     Xml = generate_xml(Raw, State),
     case send_to_hoptoad(Xml) of
         ok ->
@@ -78,24 +108,72 @@ code_change(_OldVsn, State, _Extra) ->
 %%====================================================================
 
 %% convert some exception data into Hoptoad API format
-generate_xml({exception, _Type, Reason, Message, Module, Line, Stacktrace},
+generate_xml({exception, _Type, Reason, Message, Module, Line, Stacktrace, Request, ProjectRoot},
              #state{environment = Environment, api_key = ApiKey}) ->
+    
+    %% Parse the several supported Tuple types
+    % Each result is encapsulated in a list, so it can latter be used with lists:flatten()
+    RequestElement = case Request of
+        no_request ->
+            [];
+        none -> % Ignore some more stuff
+            [];
+        false -> 
+            [];
+        {Url, CgiVars} ->
+            [{request, [{url, [Url]}, {'cgi-data', vars_to_xml_struct(CgiVars)}]}];
+        {Url, Component, CgiVars} ->
+            [{request, [{url, [Url]}, {component, [Component]}, {'cgi-data', vars_to_xml_struct(CgiVars)}]}];
+        {Url, Component, Action, CgiVars} ->
+            [{request, [{url, [Url]}, {component, [Component]}, {action, [Action]}, {'cgi-data', vars_to_xml_struct(CgiVars)}]}]
+    end,
+    
+    ProjectElement = case ProjectRoot of
+        none -> [];
+        false -> [];
+        Str  -> [{'project-root', [Str]}]
+    end,
+        
+    
     Data =
         [{notice,
           [{version,"2.0"}],
-          [{'api-key', [ApiKey]},
-           {notifier,
-            [{name, ["erlhoptoad"]},
-             {version, ["0.1"]},
-             {url, ["http://github.com/kenpratt/erlhoptoad"]}]},
-           {error,
-            [{class, [to_s(Reason)]},
-             {message, [Message]},
-             {backtrace, stacktrace_to_xml_struct([{Module, Line}|Stacktrace])}]},
-           {'server-environment',
-            [{'environment-name', [Environment]}]
-           }]}],
+          lists:flatten([
+            [
+             {'api-key', [ApiKey]},
+             {notifier,
+              [{name, ["erlhoptoad"]},
+               {version, ["0.1"]},
+               {url, ["http://github.com/kenpratt/erlhoptoad"]}]},
+             {error,
+              [{class, [to_s(Reason)]},
+               {message, [Message]},
+               {backtrace, stacktrace_to_xml_struct([{Module, Line}|Stacktrace])}]}
+            ],
+            RequestElement,
+            [
+             {'server-environment',
+                lists:flatten(
+                    ProjectElement,
+                    [{'environment-name', [Environment]}]
+                )
+             }
+            ]
+          ])
+        }],
+        
     lists:flatten(xmerl:export_simple(Data, xmerl_xml)).
+    
+    
+vars_to_xml_struct(CgiVars) when is_list(CgiVars) ->
+    vars_to_xml_struct(CgiVars, []).
+    
+vars_to_xml_struct([], Result) ->
+    lists:reverse(Result);
+vars_to_xml_struct([{Key, Value} | Rest], Result) ->
+    vars_to_xml_struct(Rest, [{var, [{key, Key}], [Value]}] ++ Result).
+
+
 
 stacktrace_to_xml_struct(Stacktrace) when is_list(Stacktrace) ->
     [stacktrace_line_to_xml_struct(L) || L <- Stacktrace].
