@@ -8,7 +8,7 @@
 -behaviour(gen_server).
 
 %% API
--export([start_link/2, notify/5, notify/6, notify/7, notify/8]).
+-export([start_link/2, notify/5, notify/6, notify/7, notify/8, test/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -222,3 +222,55 @@ to_s(Any) ->
     to_s("~1024p", [Any]).
 to_s(Fmt, Args) ->
     lists:flatten(io_lib:format(Fmt, Args)).
+    
+
+%%============================================================================%%
+%% Testing functions
+%%============================================================================%%
+test() ->
+    % Test the reformat of the stacktraces
+    test([], stacktrace_to_xml_struct([]), "Empty stacktrace list test"),
+    test([{line, [{file, "test"}, {number, 7}], []}], stacktrace_to_xml_struct([{test, 7}]), "Simple stacktrace list test"),
+    
+    % Test the internal reformat of the provided CgiVars
+    test([], vars_to_xml_struct([]), "Empty test"),
+    test([{var, [{key, "SERVER_NAME"}], ["localhost"]}], vars_to_xml_struct([{"SERVER_NAME", "localhost"}]), "One parameter test 1"),
+    
+    test([{var, [{key, "SERVER_NAME"}], ["localhost"]}], vars_to_xml_struct([{"SERVER_NAME", "localhost"}]), "One parameter atom test"),
+    
+    test([{var, [{key, "SERVER_NAME"}], ["localhost"]}, {var, [{key, "HTTP_USER_AGENT"}], ["Mozilla"]}],
+         vars_to_xml_struct([{"SERVER_NAME", "localhost"}, {"HTTP_USER_AGENT", "Mozilla"}]),
+         "Two parameters test"),
+         
+    test("<?xml version=\"1.0\"?><notice version=\"2.0\">" ++
+         "<api-key>12345678901234567890</api-key><notifier><name>erlhoptoad</name><version>0.1</version>" ++
+         "<url>http://github.com/kenpratt/erlhoptoad</url></notifier><error><class>mismatch</class>" ++
+         "<message>Mismatch on right hand side</message><backtrace><line file=\"client_tests\" number=\"124123\"/>" ++
+         "</backtrace></error><server-environment><environment-name>Development</environment-name></server-environment>" ++
+         "</notice>",
+          generate_xml({exception, error, mismatch, "Mismatch on right hand side", client_tests, 124123, [], no_request, none},
+                          #state{environment = "Development", api_key = "12345678901234567890"}), "Test generating simple xml"),             
+                              
+    test("<?xml version=\"1.0\"?><notice version=\"2.0\">" ++
+         "<api-key>12345678901234567890</api-key><notifier><name>erlhoptoad</name><version>0.1</version>" ++
+         "<url>http://github.com/kenpratt/erlhoptoad</url></notifier><error><class>mismatch</class>" ++
+         "<message>Mismatch on right hand side</message><backtrace><line file=\"client_tests\" number=\"124123\"/>" ++
+         "</backtrace></error>" ++
+         "<request><url>http://localhost/test</url><component>web</component><action>index</action>" ++
+           "<cgi-data><var key=\"HTTP_AGENT\">Mozilla</var><var key=\"SERVER_NAME\">localhost</var></cgi-data>" ++
+         "</request>" ++
+         "<server-environment><project-root>/srv/web</project-root><environment-name>Development</environment-name></server-environment>" ++
+         "</notice>",
+          generate_xml({exception, error, mismatch, "Mismatch on right hand side", client_tests, 124123, [], {"http://localhost/test", "web", "index", [{"HTTP_AGENT", "Mozilla"},{"SERVER_NAME", "localhost"}]}, "/srv/web"},
+                          #state{environment = "Development", api_key = "12345678901234567890"}), "Test generating xml with request and root"),                                            
+    ok.
+    
+test(A, B, Msg) ->
+    if
+    A =:= B ->
+        % io:format("~s ok~n", [Msg]);
+        true;
+    true ->
+        io:format("~s failed.~n  Expected     ~p~n  But received ~p~n~n", [Msg, A, B]),
+        false
+    end.
