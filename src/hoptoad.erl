@@ -90,7 +90,7 @@ generate_xml({exception, _Type, Reason, Message, Module, Line, Stacktrace},
              {url, ["http://github.com/kenpratt/erlhoptoad"]}]},
            {error,
             [{class, [to_s(Reason)]},
-             {message, [Message]},
+             {message, [to_s(Message)]},
              {backtrace, stacktrace_to_xml_struct([{Module, Line}|Stacktrace])}]},
            {'server-environment',
             [{'environment-name', [Environment]}]
