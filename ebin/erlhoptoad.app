@@ -3,6 +3,7 @@
   {description, "erlhoptoad"},
   {vsn, "0.1"},
   {modules, [
+             erlhoptoad,
              erlhoptoad_app,
              erlhoptoad_sup,
              erlhoptoad_error_logger,
