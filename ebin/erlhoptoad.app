@@ -7,7 +7,6 @@
              erlhoptoad_app,
              erlhoptoad_sup,
              erlhoptoad_error_logger,
-	     erlhoptoad,
              hoptoad
             ]},
   {registered, []},
