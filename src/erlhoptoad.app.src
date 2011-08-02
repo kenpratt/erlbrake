@@ -1,7 +1,7 @@
 {application, erlhoptoad,
  [
-  {description, "erlhoptoad"},
-  {vsn, "0.1"},
+  {description, "Erlang client for Airbrake (formerly Hoptoad)"},
+  {vsn, "0.2"},
   {modules, [
              erlhoptoad,
              erlhoptoad_app,
