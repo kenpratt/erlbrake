@@ -14,7 +14,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          terminate/2, code_change/3]).
 
--define(NOTIFICATION_API, "http://hoptoadapp.com/notifier_api/v2/notices").
+-define(NOTIFICATION_API, "http://airbrakeapp.com/notifier_api/v2/notices").
 
 -define(SERVER, ?MODULE).
 

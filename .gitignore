@@ -7,3 +7,5 @@
 src/edoc-info
 src/erlang.png
 src/stylesheet.css
+ebin
+.eunit

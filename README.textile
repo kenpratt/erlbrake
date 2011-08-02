@@ -1,6 +1,6 @@
 h1. erlhoptoad
 
-An Erlang client for the "Hoptoad":http://hoptoadapp.com/ exception notification service.
+An Erlang client for the "Airbrake":http://airbrakeapp.com/ exception notification service (formerly known as Hoptoad).
 
 h2. Requirements
 
