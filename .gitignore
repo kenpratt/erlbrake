@@ -9,3 +9,4 @@ src/erlang.png
 src/stylesheet.css
 ebin
 .eunit
+*.kpf
