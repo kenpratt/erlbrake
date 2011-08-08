@@ -267,7 +267,6 @@ test() ->
 test(A, B, Msg) ->
     if
     A =:= B ->
-        % io:format("~s ok~n", [Msg]);
         true;
     true ->
         io:format("~s failed.~n  Expected     ~p~n  But received ~p~n~n", [Msg, A, B]),

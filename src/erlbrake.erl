@@ -7,7 +7,7 @@
 start() ->
     ensure_started(sasl),
     ensure_started(ibrowse),
-    application:start(erlbrake).
+    ensure_started(erlbrake).
 
 %% @spec stop() -> ok
 %% @doc Stop erlbrake.
