@@ -1,9 +1,9 @@
 %%% Author: Ken Pratt <ken@kenpratt.net>
 %%% Created: 2010-02-09
 
-%%% A bridge to the Hoptoad exception notification service
+%%% A bridge to the Airbrake exception notification service
 
--module(hoptoad).
+-module(airbrake).
 
 -behaviour(gen_server).
 
@@ -78,16 +78,16 @@ handle_cast({exception, Type, Reason, Message, Module, Line, Stacktrace}, State)
 % New Version with additional Request + ProjectRoot
 handle_cast(Raw = {exception, _Type, _Reason, _Message, _Module, _Line, _Stacktrace, _Request, _ProjectRoot}, State) ->
     Xml = generate_xml(Raw, State),
-    case send_to_hoptoad(Xml) of
+    case send_to_airbrake(Xml) of
         ok ->
             noop;
         {error, {unexpected_response_status, "422"}} ->
-            Reason = "The submitted notice was invalid - please ensure the API key is correct. If it is, it could be a bug in the erlhoptoad XML generation.",
-            io:format("Erlhoptoad notification failed: ~s~n~p~n", [Reason, Xml]);
+            Reason = "The submitted notice was invalid - please ensure the API key is correct. If it is, it could be a bug in the erlbrake XML generation.",
+            io:format("Erlbrake notification failed: ~s~n~p~n", [Reason, Xml]);
         {error, Reason} ->
-            %% can't generate an error report, because if the erlhoptoad error
+            %% can't generate an error report, because if the erlbrake error
             %% logger is being used, it will create an infinite failure loop.
-            io:format("Erlhoptoad notification failed: ~1024p~n", [Reason])
+            io:format("Erlbrake notification failed: ~1024p~n", [Reason])
     end,
     {noreply, State};
 
@@ -107,7 +107,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal functions
 %%====================================================================
 
-%% convert some exception data into Hoptoad API format
+%% convert some exception data into Airbrake API format
 generate_xml({exception, _Type, Reason, Message, Module, Line, Stacktrace, Request, ProjectRoot},
              #state{environment = Environment, api_key = ApiKey}) ->
     
@@ -142,9 +142,9 @@ generate_xml({exception, _Type, Reason, Message, Module, Line, Stacktrace, Reque
             [
              {'api-key', [ApiKey]},
              {notifier,
-              [{name, ["erlhoptoad"]},
+              [{name, ["erlbrake"]},
                {version, ["0.1"]},
-               {url, ["http://github.com/kenpratt/erlhoptoad"]}]},
+               {url, ["http://github.com/kenpratt/erlbrake"]}]},
              {error,
               [{class, [to_s(Reason)]},
                {message, [to_s(Message)]},
@@ -195,8 +195,8 @@ stacktrace_line_to_xml_struct({M, F, Args}) when is_atom(M), is_atom(F), is_list
       {number, 0}],
      []}.
 
-%% POST some XML to Hoptoad's notify API
-send_to_hoptoad(Xml) ->
+%% POST some XML to Airbrake's notify API
+send_to_airbrake(Xml) ->
     case send_http_request(?NOTIFICATION_API, [{"Content-Type", "text/xml"}], post, Xml) of
         {ok, _ResponseBody} ->
             ok;
@@ -242,8 +242,8 @@ test() ->
          "Two parameters test"),
          
     test("<?xml version=\"1.0\"?><notice version=\"2.0\">" ++
-         "<api-key>12345678901234567890</api-key><notifier><name>erlhoptoad</name><version>0.1</version>" ++
-         "<url>http://github.com/kenpratt/erlhoptoad</url></notifier><error><class>mismatch</class>" ++
+         "<api-key>12345678901234567890</api-key><notifier><name>erlbrake</name><version>0.1</version>" ++
+         "<url>http://github.com/kenpratt/erlbrake</url></notifier><error><class>mismatch</class>" ++
          "<message>Mismatch on right hand side</message><backtrace><line file=\"client_tests\" number=\"124123\"/>" ++
          "</backtrace></error><server-environment><environment-name>Development</environment-name></server-environment>" ++
          "</notice>",
@@ -251,8 +251,8 @@ test() ->
                           #state{environment = "Development", api_key = "12345678901234567890"}), "Test generating simple xml"),             
                               
     test("<?xml version=\"1.0\"?><notice version=\"2.0\">" ++
-         "<api-key>12345678901234567890</api-key><notifier><name>erlhoptoad</name><version>0.1</version>" ++
-         "<url>http://github.com/kenpratt/erlhoptoad</url></notifier><error><class>mismatch</class>" ++
+         "<api-key>12345678901234567890</api-key><notifier><name>erlbrake</name><version>0.1</version>" ++
+         "<url>http://github.com/kenpratt/erlbrake</url></notifier><error><class>mismatch</class>" ++
          "<message>Mismatch on right hand side</message><backtrace><line file=\"client_tests\" number=\"124123\"/>" ++
          "</backtrace></error>" ++
          "<request><url>http://localhost/test</url><component>web</component><action>index</action>" ++

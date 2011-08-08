@@ -1,4 +1,4 @@
--module(erlhoptoad_sup).
+-module(erlbrake_sup).
 
 -behaviour(supervisor).
 
@@ -23,5 +23,5 @@ start_link(Environment, ApiKey) ->
 %% ===================================================================
 
 init([Environment, ApiKey]) ->
-    Hoptoad = ?CHILD(hoptoad, worker, [Environment, ApiKey]),
-    {ok, { {one_for_one, 5, 10}, [Hoptoad]} }.
+    Airbrake = ?CHILD(airbrake, worker, [Environment, ApiKey]),
+    {ok, { {one_for_one, 5, 10}, [Airbrake]} }.

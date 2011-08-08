@@ -1,18 +1,18 @@
--module(erlhoptoad).
+-module(erlbrake).
 
 -export([start/0, stop/0]).
 
 %% @spec start() -> ok
-%% @doc Start erlhoptoad.
+%% @doc Start erlbrake.
 start() ->
     ensure_started(sasl),
     ensure_started(ibrowse),
-    application:start(erlhoptoad).
+    application:start(erlbrake).
 
 %% @spec stop() -> ok
-%% @doc Stop erlhoptoad.
+%% @doc Stop erlbrake.
 stop() ->
-    application:stop(erlhoptoad),
+    application:stop(erlbrake),
     application:stop(ibrowse),
     application:stop(sasl).
 

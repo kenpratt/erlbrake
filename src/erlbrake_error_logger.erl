@@ -1,16 +1,16 @@
--module(erlhoptoad_error_logger).
+-module(erlbrake_error_logger).
 
 -compile(export_all).
 
 % Internal alias
 % Type = atom(), gets dropped
-% Reason = atom() | list(), the error class (api), not seen in the UI, but used for grouping errors in hoptoad
+% Reason = atom() | list(), the error class (api), not seen in the UI, but used for grouping errors in airbrake
 % Message = string() - shown in the UI
 % Module = string() - Shown in the UI
 % Line = int() shown in the UI
 %
-hoptoad_notify(Type, Reason, Message, Module, Line) ->
-  hoptoad:notify(Type, Reason, Message, Module, Line).
+airbrake_notify(Type, Reason, Message, Module, Line) ->
+  airbrake:notify(Type, Reason, Message, Module, Line).
 
 
 %% Gen_Event Callbacks
@@ -20,12 +20,12 @@ init(_InitArgs) -> {ok, []}.
 % Generated when error_msg/1,2 or format is called
 handle_event({error, _Gleader, {_Pid, Format, Data}}, State) ->
   Message = lists:flatten(io_lib:format(Format, Data)),
-  hoptoad_notify(error, error_msg, Message, ?MODULE, ?LINE),
+  airbrake_notify(error, error_msg, Message, ?MODULE, ?LINE),
   {ok, State};
 
 % Generated when error_report/1,2 is called
 handle_event({error_report, _Gleader, {_Pid, Type, Report}}, State) ->
-  hoptoad_notify(error_report, Type, Report, ?MODULE, ?LINE),
+  airbrake_notify(error_report, Type, Report, ?MODULE, ?LINE),
   {ok, State};
 
 % Generated when warning_msg/1,2 is called

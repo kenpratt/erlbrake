@@ -1,4 +1,4 @@
--module(erlhoptoad_app).
+-module(erlbrake_app).
 
 -behaviour(application).
 
@@ -18,11 +18,11 @@ start(_StartType, _StartArgs) ->
        
             case application:get_env(error_logger) of
                 {ok, true} ->
-                      error_logger:add_report_handler(erlhoptoad_error_logger);
+                      error_logger:add_report_handler(erlbrake_error_logger);
                 _ -> ok
             end,
              
-            erlhoptoad_sup:start_link(Environment, Api);
+            erlbrake_sup:start_link(Environment, Api);
        
        
        

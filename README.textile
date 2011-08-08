@@ -1,4 +1,4 @@
-h1. erlhoptoad
+h1. erlbrake
 
 An Erlang client for the "Airbrake":http://airbrakeapp.com/ exception notification service (formerly known as Hoptoad).
 
@@ -8,47 +8,47 @@ h2. Requirements
 
 h2. Usage
 
-1. Sign up for "Hoptoad":http://hoptoadapp.com/
-2. Create a Hoptoad project, and copy the API key
-3. Proceed with "Running the Erlhoptoad application" or "Embedding Erlhoptoad in an existing application"
+1. Sign up for "Airbrake":http://airbrakeapp.com/
+2. Create a Airbrake project, and copy the API key
+3. Proceed with "Running the Erlbrake application" or "Embedding Erlbrake in an existing application"
 
-h3. Running the Erlhoptoad application
+h3. Running the Erlbrake application
 
-1. Compile erlhoptoad: @cd path/to/erlhoptoad/ && make@
-2. Start the erlhoptoad application, replacing the API key with your own:
+1. Compile erlbrake: @cd path/to/erlbrake/ && make@
+2. Start the erlbrake application, replacing the API key with your own:
 
-<pre><code>ERL_LIBS="path/to/ibrowse:path/to/erlhoptoad:$ERL_LIBS" erl -erlhoptoad apikey '"76fdb93ab2cf276ec080671a8b3d3866"' -erlhoptoad error_logger true -erlhoptoad environment '"development"' -s erlhoptoad start</code></pre>
+<pre><code>ERL_LIBS="path/to/ibrowse:path/to/erlbrake:$ERL_LIBS" erl -erlbrake apikey '"76fdb93ab2cf276ec080671a8b3d3866"' -erlbrake error_logger true -erlbrake environment '"development"' -s erlbrake start</code></pre>
 
 3. Try generating a couple of error reports:
 
-<pre><code>1> hoptoad:notify(error, fake, "Testing erlhoptoad with a manual error report", no_module, 0).
+<pre><code>1> airbrake:notify(error, fake, "Testing erlbrake with a manual error report", no_module, 0).
 ok
-2> error_logger:error_msg("A sample error caught by the erlhoptoad error logger.").
+2> error_logger:error_msg("A sample error caught by the erlbrake error logger.").
 ...</code></pre>
 
-4. Configure erlhoptoad: three configuration options are supported: @apikey@, @environment@, and @error_logger@
+4. Configure erlbrake: three configuration options are supported: @apikey@, @environment@, and @error_logger@
 
-* @apikey@ - Set this to the API key of your Hoptoad project (String).
-* @environment@ - The Hoptoad environment that errors will be reported under (String).
-* @error_logger@ - Set to @true@ to enable the erlhoptoad error_logger (Boolean). The erlhoptoad error logger will intergrate with the existing Erlang/OTP error logging, notifying hoptoad of any runtime errors in your application. The upside is that it can catch things that manual hoptoad notification can't.
+* @apikey@ - Set this to the API key of your Airbrake project (String).
+* @environment@ - The Airbrake environment that errors will be reported under (String).
+* @error_logger@ - Set to @true@ to enable the erlbrake error_logger (Boolean). The erlbrake error logger will intergrate with the existing Erlang/OTP error logging, notifying airbrake of any runtime errors in your application. The upside is that it can catch things that manual airbrake notification can't.
 
-These configuration options can be set in @ebin/erlhoptoad.app@, or configured on the command line as in the above example.
+These configuration options can be set in @ebin/erlbrake.app@, or configured on the command line as in the above example.
 
-h3. Embedding Erlhoptoad in an existing application
+h3. Embedding Erlbrake in an existing application
 
-1. Add hoptoad to your application supervision tree:
+1. Add airbrake to your application supervision tree:
 
-<pre><code>{hoptoad,
-    {hoptoad, start_link, ["production", "76fdb93ab2cf276ec080671a8b3d3866"]},
+<pre><code>{airbrake,
+    {airbrake, start_link, ["production", "76fdb93ab2cf276ec080671a8b3d3866"]},
     permanent, 5000, worker, dynamic}.</code></pre>
 
-2. Add hoptoad hooks:
+2. Add airbrake hooks:
 
 <pre><code>case calculate_something() of
     {ok, Value} ->
         Value;
     Error = {error, Reason} ->
-        hoptoad:notify(error, Reason, "Frobber calculation failed", ?MODULE, ?LINE)
+        airbrake:notify(error, Reason, "Frobber calculation failed", ?MODULE, ?LINE)
 end.</code></pre>
 
 and/or:
@@ -58,22 +58,22 @@ and/or:
         Value
 catch
     Type:Reason ->
-        hoptoad:notify(Type, Reason, "Ahhh! Stuff is not good!", ?MODULE, ?LINE, erlang:get_stacktrace())
+        airbrake:notify(Type, Reason, "Ahhh! Stuff is not good!", ?MODULE, ?LINE, erlang:get_stacktrace())
 end.</code></pre>
 
-3. Compile erlhoptoad: @cd path/to/erlhoptoad/ && make@
-4. Add the erlhoptoad ebin directory to your Erlang path: @-pa path/to/erlhoptoad/ebin@
+3. Compile erlbrake: @cd path/to/erlbrake/ && make@
+4. Add the erlbrake ebin directory to your Erlang path: @-pa path/to/erlbrake/ebin@
 5. Start ibrowse during your application startup: @application:start(ibrowse)@
 6. Test it out!
-7. (Optional) Add the erlhoptoad error logger to your application startup:
+7. (Optional) Add the erlbrake error logger to your application startup:
 
-<pre><code>error_logger:add_report_handler(erlhoptoad_error_logger)</code></pre>
+<pre><code>error_logger:add_report_handler(erlbrake_error_logger)</code></pre>
 
 h2. Macro
 
 A macro similar to this is likely useful to avoid duplication:
 
-<pre><code>-define(NOTIFY_HOPTOAD(Type, Reason, Message),
-        hoptoad:notify(Type, Reason, Message, ?MODULE, ?LINE, erlang:get_stacktrace())).</code></pre>
+<pre><code>-define(NOTIFY_AIRBRAKE(Type, Reason, Message),
+        airbrake:notify(Type, Reason, Message, ?MODULE, ?LINE, erlang:get_stacktrace())).</code></pre>
 
 If you already have a macro to log errors, just add it to that :)
