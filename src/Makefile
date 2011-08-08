@@ -1,6 +1,11 @@
 include ../support/include.mk
 
-all: $(EBIN_FILES)
+all: ebin_dir compile
+
+ebin_dir:
+	mkdir -p $(EBIN_DIR)
+
+compile: $(EBIN_FILES)
 
 debug:
 	$(MAKE) DEBUG=-DDEBUG
