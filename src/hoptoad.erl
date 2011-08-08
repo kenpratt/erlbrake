@@ -147,7 +147,7 @@ generate_xml({exception, _Type, Reason, Message, Module, Line, Stacktrace, Reque
                {url, ["http://github.com/kenpratt/erlhoptoad"]}]},
              {error,
               [{class, [to_s(Reason)]},
-               {message, [Message]},
+               {message, [to_s(Message)]},
                {backtrace, stacktrace_to_xml_struct([{Module, Line}|Stacktrace])}]}
             ],
             RequestElement,
@@ -161,7 +161,6 @@ generate_xml({exception, _Type, Reason, Message, Module, Line, Stacktrace, Reque
             ]
           ])
         }],
-        
     lists:flatten(xmerl:export_simple(Data, xmerl_xml)).
     
     
