@@ -1,3 +1,6 @@
+%% -*- erlang -*-
+%% This is the application resource file (.app file) for the ct_model,
+%% application.
 {application, erlbrake,
  [
   {description, "Erlang client for Airbrake (formerly Hoptoad)"},
@@ -12,7 +15,8 @@
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+		  ibrowse
                  ]},
   {mod, { erlbrake_app, []}},
   {env, [
