@@ -1,6 +1,6 @@
 h1. erlbrake
 
-An Erlang client for the "Airbrake":http://airbrakeapp.com/ exception notification service (formerly known as Hoptoad).
+An Erlang client for the "Airbrake":http://airbrake.io/ exception notification service (formerly known as Hoptoad).
 
 h2. Requirements
 
@@ -8,7 +8,7 @@ h2. Requirements
 
 h2. Usage
 
-1. Sign up for "Airbrake":http://airbrakeapp.com/
+1. Sign up for "Airbrake":http://airbrake.io/
 2. Create a Airbrake project, and copy the API key
 3. Proceed with "Running the Erlbrake application" or "Embedding Erlbrake in an existing application"
 
