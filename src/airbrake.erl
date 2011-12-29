@@ -188,6 +188,22 @@ stacktrace_line_to_xml_struct({M, F, Arity}) when is_atom(M), is_atom(F), is_int
       {file, atom_to_list(M)},
       {number, 0}],
      []};
+stacktrace_line_to_xml_struct({M, F, Arity, Pos}) when is_atom(M), is_atom(F), is_integer(Arity), is_list(Pos) ->
+    File = proplists:get_value(file, Pos, atom_to_list(M)),
+    Number = proplists:get_value(line, Pos, 0),
+    {line,
+     [{method, to_s("~p/~B", [F, Arity])},
+      {file, File},
+      {number, Number}],
+     []};
+stacktrace_line_to_xml_struct({M, F, Args, Pos}) when is_atom(M), is_atom(F), is_list(Args), is_list(Pos) ->
+    File = proplists:get_value(file, Pos, atom_to_list(M)),
+    Number = proplists:get_value(line, Pos, 0),
+    {line,
+     [{method, to_s("~p/~B ~1024p", [F, length(Args), Args])},
+      {file, File},
+      {number, Number}],
+     []};
 stacktrace_line_to_xml_struct({M, F, Args}) when is_atom(M), is_atom(F), is_list(Args) ->
     {line,
      [{method, to_s("~p/~B ~1024p", [F, length(Args), Args])},
