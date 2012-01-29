@@ -16,7 +16,8 @@
   {applications, [
                   kernel,
                   stdlib,
-		  ibrowse
+		  ibrowse,
+                  xmerl
                  ]},
   {mod, { erlbrake_app, []}},
   {env, [
