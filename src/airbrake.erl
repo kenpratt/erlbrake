@@ -47,8 +47,9 @@ notify(Type, Reason, Message, Module, Line, Stacktrace) ->
 %           {Url, CgiVars}
 %           {Url, Component, CgiVars} |
 %           {Url, Component, Action, CgiVars}
+%           {Url, Component, Action, Params, CgiVars}   
 % Url = Component = Action = Key = Value = string()
-% CgiVars = [{Key, Value}]
+% CgiVars = Params = [{Key, Value}]
 %
 % Request = none | string()
 notify(Type, Reason, Message, Module, Line, Stacktrace, Request) ->
@@ -125,7 +126,9 @@ generate_xml({exception, _Type, Reason, Message, Module, Line, Stacktrace, Reque
         {Url, Component, CgiVars} ->
             [{request, [{url, [Url]}, {component, [Component]}, {'cgi-data', vars_to_xml_struct(CgiVars)}]}];
         {Url, Component, Action, CgiVars} ->
-            [{request, [{url, [Url]}, {component, [Component]}, {action, [Action]}, {'cgi-data', vars_to_xml_struct(CgiVars)}]}]
+            [{request, [{url, [Url]}, {component, [Component]}, {action, [Action]}, {'cgi-data', vars_to_xml_struct(CgiVars)}]}];
+        {Url, Component, Action, Params, CgiVars} ->
+            [{request, [{url, [Url]}, {component, [Component]}, {action, [Action]}, {'params', vars_to_xml_struct(Params)}, {'cgi-data', vars_to_xml_struct(CgiVars)}]}]
     end,
     
     ProjectElement = case ProjectRoot of
