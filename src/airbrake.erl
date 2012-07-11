@@ -84,7 +84,7 @@ handle_cast(Raw = {exception, _Type, _Reason, _Message, _Module, _Line, _Stacktr
             noop;
         {error, {unexpected_response_status, "422"}} ->
             Reason = "The submitted notice was invalid - please ensure the API key is correct. If it is, it could be a bug in the erlbrake XML generation.",
-            io:format("Erlbrake notification failed: ~s~n~p~n", [Reason, Xml]);
+            io:format("Erlbrake notification failed: ~s~n", [Reason]);
         {error, Reason} ->
             %% can't generate an error report, because if the erlbrake error
             %% logger is being used, it will create an infinite failure loop.
