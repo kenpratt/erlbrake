@@ -236,6 +236,15 @@ send_http_request(Url, Headers, Method, Body) ->
             {error, {unexpected_response, Other}}
     end.
 
+to_s(List) when is_list(List) ->
+    try
+        % attempt string
+        to_s("~s", [List])
+    catch
+        error:_E ->
+            % fallback general formatting
+            to_s("~1024p", [List])
+    end;
 to_s(Any) ->
     to_s("~1024p", [Any]).
 to_s(Fmt, Args) ->
