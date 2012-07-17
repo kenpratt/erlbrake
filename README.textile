@@ -14,7 +14,7 @@ h2. Usage
 
 h3. Running the Erlbrake application
 
-1. Compile erlbrake: @cd path/to/erlbrake/ && make@
+1. Compile erlbrake: @cd path/to/erlbrake/ && make@ or @rebar compile@
 2. Start the erlbrake application, replacing the API key with your own and the paths to ibrowse and erlbrake to where they are installed on your machine:
 
 <pre><code>ERL_LIBS="$HOME/erlang/ibrowse:$HOME/erlang/erlbrake:$ERL_LIBS" erl -erlbrake apikey '"76fdb93ab2cf276ec080671a8b3d3866"' -erlbrake error_logger true -erlbrake environment '"development"' -s erlbrake start</code></pre>
