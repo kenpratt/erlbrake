@@ -20,7 +20,7 @@ init(_InitArgs) -> {ok, []}.
 % Generated when error_msg/1,2 or format is called
 handle_event({error, _Gleader, {_Pid, Format, Data}}, State) ->
   Message = lists:flatten(io_lib:format(Format, Data)),
-  airbrake_notify(error, Format, Message, ?MODULE, ?LINE),
+  airbrake_notify(error, error, Message, ?MODULE, ?LINE),
   {ok, State};
 
 % Generated when error_report/1,2 is called
