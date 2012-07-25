@@ -7,12 +7,14 @@
 start() ->
     ensure_started(sasl),
     ensure_started(ibrowse),
+    ensure_started(xmerl),
     ensure_started(erlbrake).
 
 %% @spec stop() -> ok
 %% @doc Stop erlbrake.
 stop() ->
     application:stop(erlbrake),
+    application:stop(xmerl),
     application:stop(ibrowse),
     application:stop(sasl).
 
