@@ -172,7 +172,7 @@ parse_reason(_Reason) ->
 format_args([], FmtAcc, ArgsAcc) ->
     {string:join(lists:reverse(FmtAcc), ", "), lists:reverse(ArgsAcc)};
 format_args([H|T], FmtAcc, ArgsAcc) ->
-    {Str, _} = lager_trunc_io:print(H, 100),
+    {Str, _} = erlbrake_trunc_io:print(H, 100),
     format_args(T, ["~s"|FmtAcc], [Str|ArgsAcc]).
 
 format_limit([{M, F, _}|_] = Trace) ->
@@ -288,7 +288,7 @@ format_reason(Reason) ->
     format_term(Reason).
 
 format_term(Term) ->
-    {Str, _} = lager_trunc_io:print(Term, 500),
+    {Str, _} = erlbrake_trunc_io:print(Term, 500),
     Str.
 
 
