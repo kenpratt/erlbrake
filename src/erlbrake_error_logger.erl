@@ -124,10 +124,10 @@ handle_error_report(_, _, crash_report, [Report, Neighbors], S) ->
            [Name, length(Neighbors), format_reason(Reason)],
            [{atom_to_list(Key), format_term(Val)} || {Key, Val} <- Report]),
     {ok, S};
-handle_error_report(_, _, std_error, Report, S) ->
+handle_error_report(_, _, std_error, _Report, S) ->
     %% notify(Type, Reason, Format, Args, Extra),
     {ok, S};
-handle_error_report(_, _, Type, Report, S) ->
+handle_error_report(_, _, _Type, _Report, S) ->
     %% notify(Type, Reason, Format, Args, Extra),
     {ok, S}.
 
@@ -163,7 +163,7 @@ parse_reason({Reason, {_, _, _, Pos} = MFA})
     {Atom, DeepTrace ++ [MFA]};
 parse_reason(Reason) when is_atom(Reason) ->
     {Reason, []};
-parse_reason(Reason) ->
+parse_reason(_Reason) ->
     {unknown, []}.
 
 
