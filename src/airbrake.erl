@@ -25,7 +25,12 @@
          handle_info/2]).
 
 %% Constants
--define(NOTIFICATION_API, "http://airbrake.io/notifier_api/v2/notices").
+-define(NOTIFICATION_API, case application:get_env(notification_api) of
+  {ok, NotificationAPI} -> 
+    NotificationAPI;
+  _ ->
+    "http://airbrake.io/notifier_api/v2/notices"
+end).
 -define(SERVER, ?MODULE).
 
 -record(state, {environment, api_key}).
