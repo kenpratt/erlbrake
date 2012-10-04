@@ -5,13 +5,7 @@
  [
   {description, "Erlang client for Airbrake (formerly Hoptoad)"},
   {vsn, "0.3"},
-  {modules, [
-             erlbrake,
-             erlbrake_app,
-             erlbrake_sup,
-             erlbrake_error_logger,
-             airbrake
-            ]},
+  {modules, []},
   {registered, []},
   {applications, [
                   kernel,
