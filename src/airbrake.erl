@@ -7,6 +7,21 @@
 -module(airbrake).
 -behaviour(gen_server).
 
+-type str() :: binary() 
+             | string()
+             | atom().
+-type airbrake_element() :: {reason, str()}
+                          | {message, str()}
+                          | {trace, tuple()} %% TODO: ????
+                          | {module, str()}
+                          | {function, str()}
+                          | {line, integer()}
+                          | {node, str()}
+                          | {application, str()}
+                          | {version, str()}
+                          | {request, tuple()} %% TODO: ????
+                          .
+
 %% API
 -export([start_link/2]).
 -export([notify/1,
@@ -60,7 +75,6 @@ end).
     }).
 
 
-
 %% =============================================================================
 %% API Functions
 %% =============================================================================
@@ -70,6 +84,7 @@ start_link(Environment, ApiKey)
        is_list(ApiKey) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [Environment, ApiKey], []).
 
+-spec notify([airbrake_element()]) -> ok.
 notify(MsgProps) when is_list(MsgProps)->
   AirbrakeNotice = #notice{
       reason      = proplists:get_value(reason, MsgProps),
