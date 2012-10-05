@@ -9,7 +9,8 @@
 
 %% API
 -export([start_link/2]).
--export([notify/5,
+-export([notify/1,
+         notify/5,
          notify/6,
          notify/7,
          notify/8]).
@@ -34,6 +35,30 @@ end).
 -define(SERVER, ?MODULE).
 
 -record(state, {environment, api_key}).
+-record(notice, {
+    %% Keys map to elements in Airbrake XSD
+    %% reason      : /notice/error/class
+    reason,
+    %% message     : /notice/error/message
+    message,
+    %% trace       : /notice/error/backtrace
+    trace,  
+    %% module      : /notice/error/backtrace/line@file
+    module,
+    %% function    : /notice/error/backtrace/line@method
+    function,
+    %% line        : /notice/error/backtrace/line@number
+    line,
+    %% node        : /server-environment/hostname
+    node,
+    %% application : /server-environment/project-root
+    application,
+    %% version     : /server-environment/app-version
+    version,
+    %% request     : /request
+    request
+    }).
+
 
 
 %% =============================================================================
@@ -45,6 +70,21 @@ start_link(Environment, ApiKey)
        is_list(ApiKey) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [Environment, ApiKey], []).
 
+notify(MsgProps) when is_list(MsgProps)->
+  AirbrakeNotice = #notice{
+      reason      = proplists:get_value(reason, MsgProps),
+      message     = proplists:get_value(message, MsgProps),
+      trace       = proplists:get_value(trace, MsgProps, []),
+      module      = proplists:get_value(module, MsgProps),
+      function    = proplists:get_value(function, MsgProps),
+      line        = proplists:get_value(line, MsgProps),
+      node        = proplists:get_value(node, MsgProps),
+      application = proplists:get_value(application, MsgProps),
+      version     = proplists:get_value(version, MsgProps),
+      request     = proplists:get_value(request, MsgProps)
+      },
+  gen_server:cast(?MODULE, AirbrakeNotice).
+    
 notify(Type, Reason, Message, Module, Line) ->
     notify(Type, Reason, Message, Module, Line, []).
 
@@ -82,7 +122,19 @@ handle_cast({exception, Type, Reason, Message, Module, Line, Trace}, S) ->
     handle_cast({exception, Type, Reason, Message, Module, Line, Trace, undefined, undefined}, S);
     
 % New Version with additional Request + ProjectRoot
-handle_cast(Raw = {exception, _, _, _, _, _, _, _, _}, S) ->
+handle_cast({exception, _Type, Reason, Message, Module, Line, Trace, Request, ProjectRoot}, S) ->
+  Notice = #notice{
+      reason      = Reason,
+      message     = Message,
+      trace       = Trace,
+      module      = Module,
+      line        = Line,
+      application = ProjectRoot,
+      request     = Request
+      },
+  handle_cast(Notice, S);
+
+handle_cast(Raw = #notice{}, S) ->
     XML = generate_xml(Raw, S),
     case send_to_airbrake(XML) of
         ok ->
@@ -109,11 +161,12 @@ handle_info(_, S) ->
 %% =============================================================================
 
 %% Convert some exception data into Airbrake API format
-generate_xml({exception, _Type, Reason, Message, Module, Line, Trace, Request, ProjectRoot}, S) ->
+%%{exception, _Type, Reason, Message, Module, Line, Trace, Request, ProjectRoot}
+generate_xml(N = #notice{}, S) ->
     Server0 = [{'environment-name', [S#state.environment]}],
-    Server1 = maybe_prepend('project-root', ProjectRoot, Server0),
+    Server1 = maybe_prepend('project-root', N#notice.application, Server0),
     Notice0 = [{'server-environment', Server1}],
-    Notice1 = maybe_prepend(request, Request, Notice0),
+    Notice1 = maybe_prepend(request, N#notice.request, Notice0),
     Notice2 = [{'api-key', [S#state.api_key]},
                {'notifier',
                 [{name,    ["erlbrake"]},
@@ -121,9 +174,9 @@ generate_xml({exception, _Type, Reason, Message, Module, Line, Trace, Request, P
                  {url,     ["http://github.com/betawaffle/erlbrake"]}
                 ]},
                {'error',
-                [{class,     [to_s(Reason)]},
-                 {message,   [to_s(Message)]},
-                 {backtrace, stacktrace_to_xml_struct([{Module, Line}|Trace])}
+                [{class,     [to_s(N#notice.reason)]},
+                 {message,   [to_s(N#notice.message)]},
+                 {backtrace, stacktrace_to_xml_struct([{N#notice.module, N#notice.line}|N#notice.trace])}
                 ]}
                |Notice1],
     Root = [{notice, [{version,"2.0"}], Notice2}],
