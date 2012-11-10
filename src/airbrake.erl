@@ -1,5 +1,6 @@
 %%% Author: Ken Pratt <ken@kenpratt.net>
 %%% Modified by Andrew Hodges <betawaffle@gmail.com>
+%%% Modified by Tilman Holschuh <tilman.holschuh@gmail.com>
 %%% Created: 2010-02-09
 
 %%% A bridge to the Airbrake exception notification service
@@ -10,18 +11,23 @@
 -type str() :: binary() 
              | string()
              | atom().
+
 -type airbrake_element() :: {reason, str()}
                           | {message, str()}
-                          | {trace, tuple()} %% TODO: ????
                           | {module, str()}
                           | {function, str()}
                           | {line, integer()}
+                          | {trace, list()} %% erlang stacktrace
                           | {node, str()}
                           | {application, str()}
                           | {version, str()}
-                          | {request, tuple()} %% TODO: ????
-                          .
+                          | {request, request()}.
 
+-type request() :: {URL::term(), Vars::term()} 
+                 | {URL::term(), Controller::term(), Vars::term()} 
+                 | {URL::term(), Controller::term(), Action::term(), Vars::term()} 
+                 | {URL::term(), Controller::term(), Action::term(), Params::term(), Vars::term()}.
+        
 %% API
 -export([start_link/2]).
 -export([notify/1,
@@ -51,19 +57,19 @@ end).
 
 -record(state, {environment, api_key}).
 -record(notice, {
-    %% Keys map to elements in Airbrake XSD
+    %% Keys map to elements in Airbrake XSD (see http://airbrake.io/airbrake_2_2.xsd)
     %% reason      : /notice/error/class
     reason,
     %% message     : /notice/error/message
     message,
-    %% trace       : /notice/error/backtrace
-    trace,  
     %% module      : /notice/error/backtrace/line@file
     module,
     %% function    : /notice/error/backtrace/line@method
     function,
     %% line        : /notice/error/backtrace/line@number
     line,
+    %% trace       : /notice/error/backtrace
+    trace,  
     %% node        : /server-environment/hostname
     node,
     %% application : /server-environment/project-root
@@ -85,7 +91,7 @@ start_link(Environment, ApiKey)
     gen_server:start_link({local, ?MODULE}, ?MODULE, [Environment, ApiKey], []).
 
 -spec notify([airbrake_element()]) -> ok.
-notify(MsgProps) when is_list(MsgProps)->
+notify(MsgProps) when is_list(MsgProps) ->
   AirbrakeNotice = #notice{
       reason      = proplists:get_value(reason, MsgProps),
       message     = proplists:get_value(message, MsgProps),
@@ -132,11 +138,9 @@ terminate(_, _) ->
 handle_call(_, _, S) ->
     {reply, ok, S}.
     
-% Old version, for backwardcompatiblity (old versions, full inbox, ...)
+% Old versions, for backwardcompatiblity (old versions, full inbox, ...)
 handle_cast({exception, Type, Reason, Message, Module, Line, Trace}, S) ->
     handle_cast({exception, Type, Reason, Message, Module, Line, Trace, undefined, undefined}, S);
-    
-% New Version with additional Request + ProjectRoot
 handle_cast({exception, _Type, Reason, Message, Module, Line, Trace, Request, ProjectRoot}, S) ->
   Notice = #notice{
       reason      = Reason,
@@ -185,8 +189,8 @@ generate_xml(N = #notice{}, S) ->
     Notice2 = [{'api-key', [S#state.api_key]},
                {'notifier',
                 [{name,    ["erlbrake"]},
-                 {version, ["0.1"]},
-                 {url,     ["http://github.com/betawaffle/erlbrake"]}
+                 {version, ["0.2"]},
+                 {url,     ["http://github.com/ypaq/erlbrake"]}
                 ]},
                {'error',
                 [{class,     [to_s(N#notice.reason)]},
