@@ -17,7 +17,7 @@ h3. Running the Erlbrake application
 1. Compile erlbrake: @cd path/to/erlbrake/ && make@ or @rebar compile@
 2. Start the erlbrake application, replacing the API key with your own and the paths to ibrowse and erlbrake to where they are installed on your machine:
 
-<pre><code>ERL_LIBS="$HOME/erlang/ibrowse:$HOME/erlang/erlbrake:$ERL_LIBS" erl -erlbrake apikey '"76fdb93ab2cf276ec080671a8b3d3866"' -erlbrake error_logger true -erlbrake environment '"development"' -s erlbrake start</code></pre>
+<pre><code>ERL_LIBS="$HOME/erlang/ibrowse:$HOME/erlang/erlbrake:$ERL_LIBS" erl -erlbrake api_key '"76fdb93ab2cf276ec080671a8b3d3866"' -erlbrake error_logger true -erlbrake environment '"development"' -s erlbrake start</code></pre>
 
 3. Try generating a couple of error reports:
 
@@ -26,9 +26,9 @@ ok
 2> error_logger:error_msg("A sample error caught by the erlbrake error logger.").
 ...</code></pre>
 
-4. Configure erlbrake: three configuration options are supported: @apikey@, @environment@, and @error_logger@
+4. Configure erlbrake: three configuration options are supported: @api_key@, @environment@, and @error_logger@
 
-* @apikey@ - Set this to the API key of your Airbrake project (String).
+* @api_key@ - Set this to the API key of your Airbrake project (String).
 * @environment@ - The Airbrake environment that errors will be reported under (String).
 * @error_logger@ - Set to @true@ to enable the erlbrake error_logger (Boolean). The erlbrake error logger will intergrate with the existing Erlang/OTP error logging, notifying airbrake of any runtime errors in your application. The upside is that it can catch things that manual airbrake notification can't.
 

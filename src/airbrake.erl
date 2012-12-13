@@ -36,7 +36,6 @@
          notify/7,
          notify/8]).
 
--export([test/0]).
 
 %% Generic Server Callbacks
 -export([init/1,
@@ -98,7 +97,7 @@ notify(MsgProps) when is_list(MsgProps) ->
       trace       = proplists:get_value(trace, MsgProps, []),
       module      = proplists:get_value(module, MsgProps),
       function    = proplists:get_value(function, MsgProps),
-      line        = proplists:get_value(line, MsgProps),
+      line        = proplists:get_value(line, MsgProps, 0),
       node        = proplists:get_value(node, MsgProps),
       application = proplists:get_value(application, MsgProps),
       version     = proplists:get_value(version, MsgProps),
@@ -182,14 +181,14 @@ handle_info(_, S) ->
 %% Convert some exception data into Airbrake API format
 %%{exception, _Type, Reason, Message, Module, Line, Trace, Request, ProjectRoot}
 generate_xml(N = #notice{}, S) ->
-    Server0 = [{'environment-name', [S#state.environment]}],
-    Server1 = maybe_prepend('project-root', N#notice.application, Server0),
+    Server0 = [{'environment-name', [to_s(S#state.environment)]}],
+    Server1 = maybe_prepend('project-root', to_s(N#notice.application), Server0),
     Notice0 = [{'server-environment', Server1}],
     Notice1 = maybe_prepend(request, N#notice.request, Notice0),
     Notice2 = [{'api-key', [S#state.api_key]},
                {'notifier',
                 [{name,    ["erlbrake"]},
-                 {version, ["0.2"]},
+                 {version, ["0.3.1"]},
                  {url,     ["http://github.com/ypaq/erlbrake"]}
                 ]},
                {'error',
@@ -198,7 +197,7 @@ generate_xml(N = #notice{}, S) ->
                  {backtrace, stacktrace_to_xml_struct([{N#notice.module, N#notice.line}|N#notice.trace])}
                 ]}
                |Notice1],
-    Root = [{notice, [{version,"2.0"}], Notice2}],
+    Root = [{notice, [{version,"2.2"}], Notice2}],
     lists:flatten(xmerl:export_simple(Root, xmerl_xml)).
 
 maybe_prepend(_, undefined, Acc) ->
@@ -311,7 +310,14 @@ stacktrace_line_to_xml_struct({M, F, Args}) when is_atom(M), is_atom(F), is_list
      [{method, to_s("~w/~B ~w", [F, length(Args), Args])},
       {file, atom_to_list(M)},
       {number, 0}],
+     []};
+stacktrace_line_to_xml_struct(_) ->
+    %% catch all in case of unknown structure
+    {line,
+     [{file, unknown},
+      {number, 0}],
      []}.
+
 
 to_s(Str)
   when is_binary(Str) orelse
@@ -335,6 +341,9 @@ vars_to_xml_struct([{Key, Value} | Rest], Result) ->
 %% ============================================================================
 %% Tests
 %% ============================================================================
+-ifdef(TEST).
+
+-include_lib("eunit/include/eunit.hrl").
 
 test() ->
     % Test the reformat of the stacktraces
@@ -383,3 +392,5 @@ test(A, B, Msg) ->
                       [Msg, A, B]),
             false
     end.
+
+-endif.
