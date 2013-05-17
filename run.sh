@@ -1,1 +1,1 @@
-erl -pa ebin deps/lager/ebin deps/ibrowse/ebin
+erl -pa ebin  deps/ibrowse/ebin

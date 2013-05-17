@@ -63,7 +63,7 @@ format(Fmt, Args, Max) ->
     format(Fmt, Args, Max, []).
 
 format(Fmt, Args, Max, Options) ->
-    try lager_format:format(Fmt, Args, Max, Options)
+    try erlbrake_format:format(Fmt, Args, Max, Options)
     catch
         _What:_Why ->
             erlang:error(badarg, [Fmt, Args])
