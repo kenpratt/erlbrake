@@ -219,25 +219,25 @@ control(C, A, F, Adj, P, Pad, Enc, L) ->
     {{C, A, F, Adj, P, Pad, Enc}, L}.
 
 control2($w, [A], F, Adj, P, Pad, _Enc, L) ->
-    Term = lager_trunc_io:fprint(A, L, [{lists_as_strings, false}]),
+    Term = erlbrake_trunc_io:fprint(A, L, [{lists_as_strings, false}]),
     Res = term(Term, F, Adj, P, Pad),
     {Res, lists:flatlength(Res)};
 control2($p, [A], _F, _Adj, _P, _Pad, _Enc, L) ->
-    Term = lager_trunc_io:fprint(A, L, [{lists_as_strings, true}]),
+    Term = erlbrake_trunc_io:fprint(A, L, [{lists_as_strings, true}]),
     {Term, lists:flatlength(Term)};
 control2($W, [A,Depth], F, Adj, P, Pad, _Enc, L) when is_integer(Depth) ->
-    Term = lager_trunc_io:fprint(A, L, [{depth, Depth}, {lists_as_strings, false}]),
+    Term = erlbrake_trunc_io:fprint(A, L, [{depth, Depth}, {lists_as_strings, false}]),
     Res = term(Term, F, Adj, P, Pad),
     {Res, lists:flatlength(Res)};
 control2($P, [A,Depth], _F, _Adj, _P, _Pad, _Enc, L) when is_integer(Depth) ->
-    Term = lager_trunc_io:fprint(A, L, [{depth, Depth}, {lists_as_strings, true}]),
+    Term = erlbrake_trunc_io:fprint(A, L, [{depth, Depth}, {lists_as_strings, true}]),
     {Term, lists:flatlength(Term)};
 control2($s, [L0], F, Adj, P, Pad, latin1, L) ->
-    List = lager_trunc_io:fprint(maybe_flatten(L0), L, [{force_strings, true}]),
+    List = erlbrake_trunc_io:fprint(maybe_flatten(L0), L, [{force_strings, true}]),
     Res = string(List, F, Adj, P, Pad),
     {Res, lists:flatlength(Res)};
 control2($s, [L0], F, Adj, P, Pad, unicode, L) ->
-    List = lager_trunc_io:fprint(unicode:characters_to_list(L0), L, [{force_strings, true}]),
+    List = erlbrake_trunc_io:fprint(unicode:characters_to_list(L0), L, [{force_strings, true}]),
     Res = uniconv(string(List, F, Adj, P, Pad)),
     {Res, lists:flatlength(Res)}.
 
