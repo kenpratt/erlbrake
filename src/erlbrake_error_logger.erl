@@ -154,13 +154,16 @@ parse_reason({Reason, [MFA|_] = Trace})
     {Atom, DeepTrace ++ Trace};
 parse_reason({Reason, []}) ->
     parse_reason(Reason);
-parse_reason({Reason, {_, _, _} = MFA}) ->
+parse_reason({Reason, {M, F, A} = MFA})
+  when is_atom(M), is_atom(F), is_list(A) ->
     {Atom, DeepTrace} = parse_reason(Reason),
     {Atom, DeepTrace ++ [MFA]};
-parse_reason({Reason, {_, _, _, Pos} = MFA})
-  when is_list(Pos) ->
+parse_reason({Reason, {M, F, A, Pos} = MFA})
+  when is_atom(M), is_atom(F), is_list(A), is_list(Pos) ->
     {Atom, DeepTrace} = parse_reason(Reason),
     {Atom, DeepTrace ++ [MFA]};
+parse_reason({Reason, _NotATrace}) ->
+    parse_reason(Reason);
 parse_reason(Reason) when is_atom(Reason) ->
     {Reason, []};
 parse_reason(_Reason) ->
@@ -245,7 +248,7 @@ format_reason({if_clause, [MFA|_]}) ->
     ["no true branch found while evaluating if expression in ", format_mfa(MFA)];
 format_reason({{try_clause, Val}, [MFA|_]}) ->
     ["no try clause matching ", format_term(Val),
-     " in ", format_mfa(MFA)]; 
+     " in ", format_mfa(MFA)];
 format_reason({badarith, [MFA|_]}) ->
     ["bad arithmetic expression in ", format_mfa(MFA)];
 format_reason({{badmatch, Val}, [MFA|_]}) ->
