@@ -136,7 +136,8 @@ handle_error_report(_, _, _Type, _Report, S) ->
 
 notify(Type, Reason, Format, Args, Extra) ->
     Message = format_message(Format, Args),
-    Request = {atom_to_list(node()), "erlang", format_term(Type), Extra},
+    %% ransomr report all types as error so that all reports for an exception are grouped
+    Request = {atom_to_list(node()), "erlang", "error", Extra},
     {Class, Trace} = parse_reason(Reason),
     {Module, Line} = case Trace of
                          [{M, _, _}|_] ->
