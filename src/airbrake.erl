@@ -33,7 +33,7 @@
 end).
 -define(SERVER, ?MODULE).
 
--record(state, {environment, api_key}).
+-record(state, {environment, api_key :: string(), queue = queue:new() :: queue() , locked = false :: boolean(), pause_time = 1000 :: integer(), max_queue = 30 :: integer()}).
 
 
 %% =============================================================================
@@ -81,27 +81,61 @@ handle_call(_, _, S) ->
 handle_cast({exception, Type, Reason, Message, Module, Line, Trace}, S) ->
     handle_cast({exception, Type, Reason, Message, Module, Line, Trace, undefined, undefined}, S);
     
+
 % New Version with additional Request + ProjectRoot
 handle_cast(Raw = {exception, _, _, _, _, _, _, _, _}, S) ->
-    XML = generate_xml(Raw, S),
-    case send_to_airbrake(XML) of
-        ok ->
-            noop;
-        {error, {unexpected_response_status, "422"}} ->
-            Reason = "The submitted notice was invalid - please ensure the API key is correct. If it is, it could be a bug in the erlbrake XML generation.",
-            io:format("Erlbrake notification failed: ~s~n", [Reason]);
-        {error, Reason} ->
-            %% can't generate an error report, because if the erlbrake error
-            %% logger is being used, it will create an infinite failure loop.
-            io:format("Erlbrake notification failed: ~1024p~n", [Reason])
-    end,
-    {noreply, S};
+    case S#state.locked of
+        true ->
+            case queue:len(S#state.queue) < S#state.max_queue of
+                true -> {noreply, S#state{queue = queue:in(Raw, S#state.queue)}};
+                false -> {noreply, S}
+            end;
+        false ->
+            do_request(Raw, S)
+    end;
+
+
 
 handle_cast(_, S) ->
     {noreply, S}.
 
+handle_info(unlock, S) ->
+    case queue:out(S#state.queue) of
+        {empty, Q1} ->
+            {noreply, S#state{queue = Q1, locked = false}};
+        {{value, Raw}, Q1} ->
+            do_request(Raw, S#state{queue = Q1, locked = false})
+    end;
 handle_info(_, S) ->
     {noreply, S}.
+
+do_request(Raw, S) ->
+    process_request(Raw, S),
+    {noreply, S#state{locked = true}}.
+
+schedule_unlock(S, Pid) ->
+    timer:send_after(S#state.pause_time, Pid, unlock).
+
+process_request(Raw, S) ->
+    Parent = self(),
+    spawn_link(fun() ->
+        XML = generate_xml(Raw, S),
+        case send_to_airbrake(XML) of
+            ok ->
+                noop;
+            {error, {unexpected_response_status, "422"}} ->
+                Reason = "The submitted notice was invalid - please ensure the API key is correct. If it is, it could be a bug in the erlbrake XML generation.",
+                io:format("Erlbrake notification failed: ~s~n", [Reason]);
+            {error, Reason} ->
+                %% can't generate an error report, because if the erlbrake error
+                %% logger is being used, it will create an infinite failure loop.
+                io:format("Erlbrake notification failed: ~1024p~n", [Reason])
+        end,
+
+        schedule_unlock(S, Parent)
+    end).
+
+
 
 
 %% =============================================================================
@@ -184,7 +218,6 @@ send_http_request(URL, Headers, Method, Body) ->
 %% POST some XML to Airbrake's notify API
 send_to_airbrake(XML) ->
     Res = send_http_request(?NOTIFICATION_API, [{"Content-Type", "text/xml"}], post, XML),
-    timer:sleep(1000),
     case Res of
         {ok, _} -> ok;
         Error   -> Error
