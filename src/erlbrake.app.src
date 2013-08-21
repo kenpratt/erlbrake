@@ -4,14 +4,8 @@
 {application, erlbrake,
  [
   {description, "Erlang client for Airbrake (formerly Hoptoad)"},
-  {vsn, "0.3"},
-  {modules, [
-             erlbrake,
-             erlbrake_app,
-             erlbrake_sup,
-             erlbrake_error_logger,
-             airbrake
-            ]},
+  {vsn, "0.3.1"},
+  {modules, []},
   {registered, []},
   {applications, [
                   kernel,
@@ -21,7 +15,7 @@
                  ]},
   {mod, { erlbrake_app, []}},
   {env, [
-   {apikey, "ENTER_API_KEY"},
+   {api_key, "ENTER_API_KEY"},
    {environment, "development"}
   ]}
  ]}.

@@ -12,9 +12,9 @@
 start(_StartType, _StartArgs) ->
     {ok, Environment} = application:get_env(environment),
 
-    case application:get_env(apikey) of
-       {ok, "ENTER_API_KEY"} -> {error, no_apikey};
-       {ok, Api} -> 
+    case application:get_env(api_key) of
+       {ok, "ENTER_API_KEY"} -> {error, no_api_key};
+       {ok, ApiKey} -> 
        
             case application:get_env(error_logger) of
                 {ok, true} ->
@@ -22,11 +22,11 @@ start(_StartType, _StartArgs) ->
                 _ -> ok
             end,
              
-            erlbrake_sup:start_link(Environment, Api);
+            erlbrake_sup:start_link(Environment, ApiKey);
        
        
        
-       undefined -> {error, no_apikey}
+       undefined -> {error, no_api_key}
     end.
     
     
