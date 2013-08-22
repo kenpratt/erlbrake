@@ -190,6 +190,7 @@ process_request(Raw, S) ->
     Parent = self(),
     spawn_link(fun() ->
         XML = generate_xml(Raw, S),
+        %% io:format("XML~n~p~n", [XML]),
         case send_to_airbrake(XML) of
             ok ->
                 noop;
@@ -368,7 +369,7 @@ vars_to_xml_struct(CgiVars) when is_list(CgiVars) ->
 vars_to_xml_struct([], Result) ->
     lists:reverse(Result);
 vars_to_xml_struct([{Key, Value} | Rest], Result) ->
-    vars_to_xml_struct(Rest, [{var, [{key, Key}], [Value]}] ++ Result).
+    vars_to_xml_struct(Rest, [{var, [{key, to_s(Key)}], [to_s(Value)]}] ++ Result).
 
 
 %% ============================================================================
