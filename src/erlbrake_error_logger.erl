@@ -91,6 +91,14 @@ handle_error_msg(_, _, "Error in process " ++ _, Data, S) ->
            [Name, Node, format_reason(Reason)],
            [{"full_reason", format_term(Reason)}]),
     {ok, S};
+handle_error_msg(_, _, "** Cowboy handler" ++ _, Data, S) ->
+    [Name, FuncName, Arity, ReasonType, ReasonData, State, Request, Stack] = Data,
+    notify(error, {ReasonData, Stack},
+           "Cowboy handler ~p terminated in ~p/~p for the reason ~p:~p",
+           [Name, FuncName, Arity, ReasonType, ReasonData],
+           [last_message(Request),
+            state_data(State)]),
+    {ok, S};
 handle_error_msg(_, _, Format, Data, S) ->
     notify(error, Format, Format, Data, []),
     {ok, S}.
