@@ -295,9 +295,21 @@ send_to_airbrake(XML) ->
         Error   -> Error
     end.
 
+-define(UNKNOWN_STACK_LINE_XML, 
+    {line,
+     [{file, unknown},
+      {number, 0}],
+     []}).
+
 stacktrace_to_xml_struct(Trace)
   when is_list(Trace) ->
-    [stacktrace_line_to_xml_struct(L) || L <- Trace].
+    remove_unknown_head(
+      [stacktrace_line_to_xml_struct(L) || L <- Trace]).
+
+remove_unknown_head([?UNKNOWN_STACK_LINE_XML | [_|_] = T]) ->
+    remove_unknown_head(T);
+remove_unknown_head(Stack) ->
+    Stack.
 
 stacktrace_line_to_xml_struct({M, Line})
   when is_atom(M) andalso
@@ -347,10 +359,7 @@ stacktrace_line_to_xml_struct({M, F, Args}) when is_atom(M), is_atom(F), is_list
      []};
 stacktrace_line_to_xml_struct(_) ->
     %% catch all in case of unknown structure
-    {line,
-     [{file, unknown},
-      {number, 0}],
-     []}.
+    ?UNKNOWN_STACK_LINE_XML.
 
 
 to_s(Str)
@@ -379,52 +388,57 @@ vars_to_xml_struct([{Key, Value} | Rest], Result) ->
 
 -include_lib("eunit/include/eunit.hrl").
 
-test() ->
-    % Test the reformat of the stacktraces
-    test([],
-         stacktrace_to_xml_struct([]),
-         "Empty stacktrace list test"),
-    test([{line, [{file, "test"}, {number, 7}], []}],
-         stacktrace_to_xml_struct([{test, 7}]),
-         "Simple stacktrace list test"),
-    
-    % Test the internal reformat of the provided CgiVars
-    test([],
-         vars_to_xml_struct([]),
-         "Empty test"),
-    test([{var, [{key, "SERVER_NAME"}], ["localhost"]}],
-         vars_to_xml_struct([{"SERVER_NAME", "localhost"}]),
-         "One parameter test 1"),
-    test([{var, [{key, "SERVER_NAME"}], ["localhost"]}],
-         vars_to_xml_struct([{"SERVER_NAME", "localhost"}]),
-         "One parameter atom test"),
-    test([{var, [{key, "SERVER_NAME"}], ["localhost"]},
-          {var, [{key, "HTTP_USER_AGENT"}], ["Mozilla"]}
-         ],
-         vars_to_xml_struct([{"SERVER_NAME", "localhost"}, {"HTTP_USER_AGENT", "Mozilla"}]),
-         "Two parameters test"),
-         
-    test("<?xml version=\"1.0\"?>"
-         "<notice version=\"2.0\"><api-key>12345678901234567890</api-key><notifier><name>erlbrake</name><version>0.1</version><url>http://github.com/betawaffle/erlbrake</url></notifier><error><class>mismatch</class><message>Mismatch on right hand side</message><backtrace><line file=\"client_tests\" number=\"124123\"/></backtrace></error><server-environment><environment-name>Development</environment-name></server-environment></notice>",
-         generate_xml({exception, error, mismatch, "Mismatch on right hand side", client_tests, 124123, [], undefined, undefined}, #state{environment = "Development", api_key = "12345678901234567890"}),
-         "Test generating simple xml"),
-    test("<?xml version=\"1.0\"?>"
-         "<notice version=\"2.0\"><api-key>12345678901234567890</api-key><notifier><name>erlbrake</name><version>0.1</version><url>http://github.com/betawaffle/erlbrake</url></notifier><error><class>mismatch</class><message>Mismatch on right hand side</message><backtrace><line file=\"client_tests\" number=\"124123\"/></backtrace></error><request><url>http://localhost/test</url><component>web</component><action>index</action><cgi-data><var key=\"HTTP_AGENT\">Mozilla</var><var key=\"SERVER_NAME\">localhost</var></cgi-data></request><server-environment><project-root>/srv/web</project-root><environment-name>Development</environment-name></server-environment></notice>",
-         generate_xml({exception, error, mismatch, <<"Mismatch on right hand side">>, client_tests, 124123, [], {"http://localhost/test", "web", "index", [{"HTTP_AGENT", "Mozilla"}, {"SERVER_NAME", "localhost"}]}, "/srv/web"}, #state{environment = "Development", api_key = "12345678901234567890"}),
-         "Test generating xml with request and root"),
-    ok.
+empty_stack_trace_test() ->
+    ?assertEqual([{line, [{file, "test"}, {number, 7}], []}],
+                 stacktrace_to_xml_struct([{undefined, undefined}, {test, 7}])),
+    ?assertEqual([{line, [{file, "test"}, {number, 7}], []},
+                  {line, [{file, unknown}, {number, 0}], []}],
+                 stacktrace_to_xml_struct([{undefined, undefined},
+                                           {undefined, undefined},
+                                           {test, 7}, 
+                                           {undefined, undefined}])),
+    ?assertEqual([{line, [{file, unknown}, {number, 0}], []}],
+                 stacktrace_to_xml_struct([{undefined, undefined},
+                                           {undefined, undefined},
+                                           {undefined, undefined}])).
 
-test(A, B, Msg) ->
-    if
-        A =:= B ->
-            true;
-        true ->
-            io:format("~s failed.~n"
-                      "  Expected     ~p~n"
-                      "  But received ~p~n"
-                      "~n",
-                      [Msg, A, B]),
-            false
-    end.
+empty_stacktrace_list_test() ->
+    ?assertEqual([],
+                 stacktrace_to_xml_struct([])).
+
+simple_stacktrace_list_test() ->
+    ?assertEqual([{line, [{file, "test"}, {number, 7}], []}],
+                 stacktrace_to_xml_struct([{test, 7}])).
+
+%% Test the internal reformat of the provided CgiVars
+empty_test() ->
+    ?assertEqual([],
+                 vars_to_xml_struct([])).
+
+one_parameter_test1() ->
+    ?assertEqual([{var, [{key, "SERVER_NAME"}], ["localhost"]}],
+                 vars_to_xml_struct([{"SERVER_NAME", "localhost"}])).
+
+one_parameter_atom_test() ->
+    ?assertEqual([{var, [{key, "SERVER_NAME"}], ["localhost"]}],
+                 vars_to_xml_struct([{"SERVER_NAME", "localhost"}])).
+
+two_parameters_test() ->
+    ?assertEqual([{var, [{key, "SERVER_NAME"}], ["localhost"]},
+                  {var, [{key, "HTTP_USER_AGENT"}], ["Mozilla"]}
+                 ],
+                 vars_to_xml_struct([{"SERVER_NAME", "localhost"}, {"HTTP_USER_AGENT", "Mozilla"}])).
+
+%% generate_simple_xml_test() ->
+%%     ?assertEqual(
+%%        "<?xml version=\"1.0\"?>"
+%%        "<notice version=\"2.0\"><api-key>12345678901234567890</api-key><notifier><name>erlbrake</name><version>0.1</version><url>http://github.com/betawaffle/erlbrake</url></notifier><error><class>mismatch</class><message>Mismatch on right hand side</message><backtrace><line file=\"client_tests\" number=\"124123\"/></backtrace></error><server-environment><environment-name>Development</environment-name></server-environment></notice>",
+%%        generate_xml({exception, error, mismatch, "Mismatch on right hand side", client_tests, 124123, [], undefined, undefined}, #state{environment = "Development", api_key = "12345678901234567890"})).
+
+%% generate_xml_with_request_and_root_test() ->
+%%     ?assertEqual(
+%%        "<?xml version=\"1.0\"?>"
+%%        "<notice version=\"2.0\"><api-key>12345678901234567890</api-key><notifier><name>erlbrake</name><version>0.1</version><url>http://github.com/betawaffle/erlbrake</url></notifier><error><class>mismatch</class><message>Mismatch on right hand side</message><backtrace><line file=\"client_tests\" number=\"124123\"/></backtrace></error><request><url>http://localhost/test</url><component>web</component><action>index</action><cgi-data><var key=\"HTTP_AGENT\">Mozilla</var><var key=\"SERVER_NAME\">localhost</var></cgi-data></request><server-environment><project-root>/srv/web</project-root><environment-name>Development</environment-name></server-environment></notice>",
+%%        generate_xml({exception, error, mismatch, <<"Mismatch on right hand side">>, client_tests, 124123, [], {"http://localhost/test", "web", "index", [{"HTTP_AGENT", "Mozilla"}, {"SERVER_NAME", "localhost"}]}, "/srv/web"}, #state{environment = "Development", api_key = "12345678901234567890"})).
 
 -endif.
