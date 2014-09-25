@@ -91,6 +91,14 @@ handle_error_msg(_, _, "Error in process " ++ _, Data, S) ->
            [Name, Node, format_reason(Reason)],
            [{"full_reason", format_term(Reason)}]),
     {ok, S};
+handle_error_msg(_, _, "** Cowboy handler" ++ _, Data, S) ->
+    [Name, FuncName, Arity, ReasonType, ReasonData, State, Request, Stack] = Data,
+    notify(error, {ReasonData, Stack},
+           "Cowboy handler ~p terminated in ~p/~p for the reason ~p:~p",
+           [Name, FuncName, Arity, ReasonType, ReasonData],
+           [last_message(Request),
+            state_data(State)]),
+    {ok, S};
 handle_error_msg(_, _, Format, Data, S) ->
     notify(error, Format, Format, Data, []),
     {ok, S}.
@@ -136,7 +144,8 @@ handle_error_report(_, _, _Type, _Report, S) ->
 
 notify(Type, Reason, Format, Args, Extra) ->
     Message = format_message(Format, Args),
-    Request = {atom_to_list(node()), "erlang", format_term(Type), Extra},
+    %% ransomr report all types as error so that all reports for an exception are grouped
+    Request = {atom_to_list(node()), "erlang", "error", Extra},
     {Class, Trace} = parse_reason(Reason),
     {Module, Line} = case Trace of
                          [{M, _, _}|_] ->
@@ -154,13 +163,16 @@ parse_reason({Reason, [MFA|_] = Trace})
     {Atom, DeepTrace ++ Trace};
 parse_reason({Reason, []}) ->
     parse_reason(Reason);
-parse_reason({Reason, {_, _, _} = MFA}) ->
+parse_reason({Reason, {M, F, A} = MFA})
+  when is_atom(M), is_atom(F), is_list(A) ->
     {Atom, DeepTrace} = parse_reason(Reason),
     {Atom, DeepTrace ++ [MFA]};
-parse_reason({Reason, {_, _, _, Pos} = MFA})
-  when is_list(Pos) ->
+parse_reason({Reason, {M, F, A, Pos} = MFA})
+  when is_atom(M), is_atom(F), is_list(A), is_list(Pos) ->
     {Atom, DeepTrace} = parse_reason(Reason),
     {Atom, DeepTrace ++ [MFA]};
+parse_reason({Reason, _NotATrace}) ->
+    parse_reason(Reason);
 parse_reason(Reason) when is_atom(Reason) ->
     {Reason, []};
 parse_reason(_Reason) ->
@@ -245,7 +257,7 @@ format_reason({if_clause, [MFA|_]}) ->
     ["no true branch found while evaluating if expression in ", format_mfa(MFA)];
 format_reason({{try_clause, Val}, [MFA|_]}) ->
     ["no try clause matching ", format_term(Val),
-     " in ", format_mfa(MFA)]; 
+     " in ", format_mfa(MFA)];
 format_reason({badarith, [MFA|_]}) ->
     ["bad arithmetic expression in ", format_mfa(MFA)];
 format_reason({{badmatch, Val}, [MFA|_]}) ->

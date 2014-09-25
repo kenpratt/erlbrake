@@ -1,5 +1,6 @@
 %%% Author: Ken Pratt <ken@kenpratt.net>
 %%% Modified by Andrew Hodges <betawaffle@gmail.com>
+%%% Modified by Tilman Holschuh <tilman.holschuh@gmail.com>
 %%% Created: 2010-02-09
 
 %%% A bridge to the Airbrake exception notification service
@@ -7,14 +8,34 @@
 -module(airbrake).
 -behaviour(gen_server).
 
+-type str() :: binary() 
+             | string()
+             | atom().
+
+-type airbrake_element() :: {reason, str()}
+                          | {message, str()}
+                          | {module, str()}
+                          | {function, str()}
+                          | {line, integer()}
+                          | {trace, list()} %% erlang stacktrace
+                          | {node, str()}
+                          | {application, str()}
+                          | {version, str()}
+                          | {request, request()}.
+
+-type request() :: {URL::term(), Vars::term()} 
+                 | {URL::term(), Controller::term(), Vars::term()} 
+                 | {URL::term(), Controller::term(), Action::term(), Vars::term()} 
+                 | {URL::term(), Controller::term(), Action::term(), Params::term(), Vars::term()}.
+        
 %% API
 -export([start_link/2]).
--export([notify/5,
+-export([notify/1,
+         notify/5,
          notify/6,
          notify/7,
          notify/8]).
 
--export([test/0]).
 
 %% Generic Server Callbacks
 -export([init/1,
@@ -33,7 +54,30 @@
 end).
 -define(SERVER, ?MODULE).
 
--record(state, {environment, api_key}).
+-record(state, {environment, api_key :: string(), queue = queue:new() :: queue() , locked = false :: boolean(), pause_time = 1000 :: integer(), max_queue = 30 :: integer()}).
+-record(notice, {
+    %% Keys map to elements in Airbrake XSD (see http://airbrake.io/airbrake_2_2.xsd)
+    %% reason      : /notice/error/class
+    reason,
+    %% message     : /notice/error/message
+    message,
+    %% module      : /notice/error/backtrace/line@file
+    module,
+    %% function    : /notice/error/backtrace/line@method
+    function,
+    %% line        : /notice/error/backtrace/line@number
+    line,
+    %% trace       : /notice/error/backtrace
+    trace,  
+    %% node        : /server-environment/hostname
+    node,
+    %% application : /server-environment/project-root
+    application,
+    %% version     : /server-environment/app-version
+    version,
+    %% request     : /request
+    request
+    }).
 
 
 %% =============================================================================
@@ -45,6 +89,22 @@ start_link(Environment, ApiKey)
        is_list(ApiKey) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [Environment, ApiKey], []).
 
+-spec notify([airbrake_element()]) -> ok.
+notify(MsgProps) when is_list(MsgProps) ->
+  AirbrakeNotice = #notice{
+      reason      = proplists:get_value(reason, MsgProps),
+      message     = proplists:get_value(message, MsgProps),
+      trace       = proplists:get_value(trace, MsgProps, []),
+      module      = proplists:get_value(module, MsgProps),
+      function    = proplists:get_value(function, MsgProps),
+      line        = proplists:get_value(line, MsgProps, 0),
+      node        = proplists:get_value(node, MsgProps),
+      application = proplists:get_value(application, MsgProps),
+      version     = proplists:get_value(version, MsgProps),
+      request     = proplists:get_value(request, MsgProps)
+      },
+  gen_server:cast(?MODULE, AirbrakeNotice).
+    
 notify(Type, Reason, Message, Module, Line) ->
     notify(Type, Reason, Message, Module, Line, []).
 
@@ -77,31 +137,76 @@ terminate(_, _) ->
 handle_call(_, _, S) ->
     {reply, ok, S}.
     
-% Old version, for backwardcompatiblity (old versions, full inbox, ...)
+% Old versions, for backwardcompatiblity (old versions, full inbox, ...)
 handle_cast({exception, Type, Reason, Message, Module, Line, Trace}, S) ->
     handle_cast({exception, Type, Reason, Message, Module, Line, Trace, undefined, undefined}, S);
-    
-% New Version with additional Request + ProjectRoot
-handle_cast(Raw = {exception, _, _, _, _, _, _, _, _}, S) ->
-    XML = generate_xml(Raw, S),
-    case send_to_airbrake(XML) of
-        ok ->
-            noop;
-        {error, {unexpected_response_status, "422"}} ->
-            Reason = "The submitted notice was invalid - please ensure the API key is correct. If it is, it could be a bug in the erlbrake XML generation.",
-            io:format("Erlbrake notification failed: ~s~n", [Reason]);
-        {error, Reason} ->
-            %% can't generate an error report, because if the erlbrake error
-            %% logger is being used, it will create an infinite failure loop.
-            io:format("Erlbrake notification failed: ~1024p~n", [Reason])
-    end,
-    {noreply, S};
+handle_cast({exception, _Type, Reason, Message, Module, Line, Trace, Request, ProjectRoot}, S) ->
+  Notice = #notice{
+      reason      = Reason,
+      message     = Message,
+      trace       = Trace,
+      module      = Module,
+      line        = Line,
+      application = ProjectRoot,
+      request     = Request
+      },
+  handle_cast(Notice, S);
+
+
+handle_cast(Raw = #notice{}, S) ->
+    case S#state.locked of
+        true ->
+            case queue:len(S#state.queue) < S#state.max_queue of
+                true -> {noreply, S#state{queue = queue:in(Raw, S#state.queue)}};
+                false -> {noreply, S}
+            end;
+        false ->
+            do_request(Raw, S)
+    end;
+
+
 
 handle_cast(_, S) ->
     {noreply, S}.
 
+handle_info(unlock, S) ->
+    case queue:out(S#state.queue) of
+        {empty, Q1} ->
+            {noreply, S#state{queue = Q1, locked = false}};
+        {{value, Raw}, Q1} ->
+            do_request(Raw, S#state{queue = Q1, locked = false})
+    end;
 handle_info(_, S) ->
     {noreply, S}.
+
+do_request(Raw, S) ->
+    process_request(Raw, S),
+    {noreply, S#state{locked = true}}.
+
+schedule_unlock(S, Pid) ->
+    timer:send_after(S#state.pause_time, Pid, unlock).
+
+process_request(Raw, S) ->
+    Parent = self(),
+    spawn_link(fun() ->
+        XML = generate_xml(Raw, S),
+        %% io:format("XML~n~p~n", [XML]),
+        case send_to_airbrake(XML) of
+            ok ->
+                noop;
+            {error, {unexpected_response_status, "422"}} ->
+                Reason = "The submitted notice was invalid - please ensure the API key is correct. If it is, it could be a bug in the erlbrake XML generation.",
+                io:format("Erlbrake notification failed: ~s~n", [Reason]);
+            {error, Reason} ->
+                %% can't generate an error report, because if the erlbrake error
+                %% logger is being used, it will create an infinite failure loop.
+                io:format("Erlbrake notification failed: ~1024p~n", [Reason])
+        end,
+
+        schedule_unlock(S, Parent)
+    end).
+
+
 
 
 %% =============================================================================
@@ -109,24 +214,25 @@ handle_info(_, S) ->
 %% =============================================================================
 
 %% Convert some exception data into Airbrake API format
-generate_xml({exception, _Type, Reason, Message, Module, Line, Trace, Request, ProjectRoot}, S) ->
-    Server0 = [{'environment-name', [S#state.environment]}],
-    Server1 = maybe_prepend('project-root', ProjectRoot, Server0),
+%%{exception, _Type, Reason, Message, Module, Line, Trace, Request, ProjectRoot}
+generate_xml(N = #notice{}, S) ->
+    Server0 = [{'environment-name', [to_s(S#state.environment)]}],
+    Server1 = maybe_prepend('project-root', to_s(N#notice.application), Server0),
     Notice0 = [{'server-environment', Server1}],
-    Notice1 = maybe_prepend(request, Request, Notice0),
+    Notice1 = maybe_prepend(request, N#notice.request, Notice0),
     Notice2 = [{'api-key', [S#state.api_key]},
                {'notifier',
                 [{name,    ["erlbrake"]},
-                 {version, ["0.1"]},
-                 {url,     ["http://github.com/betawaffle/erlbrake"]}
+                 {version, ["0.3.1"]},
+                 {url,     ["http://github.com/ypaq/erlbrake"]}
                 ]},
                {'error',
-                [{class,     [to_s(Reason)]},
-                 {message,   [to_s(Message)]},
-                 {backtrace, stacktrace_to_xml_struct([{Module, Line}|Trace])}
+                [{class,     [to_s(N#notice.reason)]},
+                 {message,   [to_s(N#notice.message)]},
+                 {backtrace, stacktrace_to_xml_struct([{N#notice.module, N#notice.line}|N#notice.trace])}
                 ]}
                |Notice1],
-    Root = [{notice, [{version,"2.0"}], Notice2}],
+    Root = [{notice, [{version,"2.2"}], Notice2}],
     lists:flatten(xmerl:export_simple(Root, xmerl_xml)).
 
 maybe_prepend(_, undefined, Acc) ->
@@ -184,15 +290,26 @@ send_http_request(URL, Headers, Method, Body) ->
 %% POST some XML to Airbrake's notify API
 send_to_airbrake(XML) ->
     Res = send_http_request(?NOTIFICATION_API, [{"Content-Type", "text/xml"}], post, XML),
-    timer:sleep(1000),
     case Res of
         {ok, _} -> ok;
         Error   -> Error
     end.
 
+-define(UNKNOWN_STACK_LINE_XML, 
+    {line,
+     [{file, unknown},
+      {number, 0}],
+     []}).
+
 stacktrace_to_xml_struct(Trace)
   when is_list(Trace) ->
-    [stacktrace_line_to_xml_struct(L) || L <- Trace].
+    remove_unknown_head(
+      [stacktrace_line_to_xml_struct(L) || L <- Trace]).
+
+remove_unknown_head([?UNKNOWN_STACK_LINE_XML | [_|_] = T]) ->
+    remove_unknown_head(T);
+remove_unknown_head(Stack) ->
+    Stack.
 
 stacktrace_line_to_xml_struct({M, Line})
   when is_atom(M) andalso
@@ -239,7 +356,11 @@ stacktrace_line_to_xml_struct({M, F, Args}) when is_atom(M), is_atom(F), is_list
      [{method, to_s("~w/~B ~w", [F, length(Args), Args])},
       {file, atom_to_list(M)},
       {number, 0}],
-     []}.
+     []};
+stacktrace_line_to_xml_struct(_) ->
+    %% catch all in case of unknown structure
+    ?UNKNOWN_STACK_LINE_XML.
+
 
 to_s(Str)
   when is_binary(Str) orelse
@@ -257,57 +378,67 @@ vars_to_xml_struct(CgiVars) when is_list(CgiVars) ->
 vars_to_xml_struct([], Result) ->
     lists:reverse(Result);
 vars_to_xml_struct([{Key, Value} | Rest], Result) ->
-    vars_to_xml_struct(Rest, [{var, [{key, Key}], [Value]}] ++ Result).
+    vars_to_xml_struct(Rest, [{var, [{key, to_s(Key)}], [to_s(Value)]}] ++ Result).
 
 
 %% ============================================================================
 %% Tests
 %% ============================================================================
+-ifdef(TEST).
 
-test() ->
-    % Test the reformat of the stacktraces
-    test([],
-         stacktrace_to_xml_struct([]),
-         "Empty stacktrace list test"),
-    test([{line, [{file, "test"}, {number, 7}], []}],
-         stacktrace_to_xml_struct([{test, 7}]),
-         "Simple stacktrace list test"),
-    
-    % Test the internal reformat of the provided CgiVars
-    test([],
-         vars_to_xml_struct([]),
-         "Empty test"),
-    test([{var, [{key, "SERVER_NAME"}], ["localhost"]}],
-         vars_to_xml_struct([{"SERVER_NAME", "localhost"}]),
-         "One parameter test 1"),
-    test([{var, [{key, "SERVER_NAME"}], ["localhost"]}],
-         vars_to_xml_struct([{"SERVER_NAME", "localhost"}]),
-         "One parameter atom test"),
-    test([{var, [{key, "SERVER_NAME"}], ["localhost"]},
-          {var, [{key, "HTTP_USER_AGENT"}], ["Mozilla"]}
-         ],
-         vars_to_xml_struct([{"SERVER_NAME", "localhost"}, {"HTTP_USER_AGENT", "Mozilla"}]),
-         "Two parameters test"),
-         
-    test("<?xml version=\"1.0\"?>"
-         "<notice version=\"2.0\"><api-key>12345678901234567890</api-key><notifier><name>erlbrake</name><version>0.1</version><url>http://github.com/betawaffle/erlbrake</url></notifier><error><class>mismatch</class><message>Mismatch on right hand side</message><backtrace><line file=\"client_tests\" number=\"124123\"/></backtrace></error><server-environment><environment-name>Development</environment-name></server-environment></notice>",
-         generate_xml({exception, error, mismatch, "Mismatch on right hand side", client_tests, 124123, [], undefined, undefined}, #state{environment = "Development", api_key = "12345678901234567890"}),
-         "Test generating simple xml"),
-    test("<?xml version=\"1.0\"?>"
-         "<notice version=\"2.0\"><api-key>12345678901234567890</api-key><notifier><name>erlbrake</name><version>0.1</version><url>http://github.com/betawaffle/erlbrake</url></notifier><error><class>mismatch</class><message>Mismatch on right hand side</message><backtrace><line file=\"client_tests\" number=\"124123\"/></backtrace></error><request><url>http://localhost/test</url><component>web</component><action>index</action><cgi-data><var key=\"HTTP_AGENT\">Mozilla</var><var key=\"SERVER_NAME\">localhost</var></cgi-data></request><server-environment><project-root>/srv/web</project-root><environment-name>Development</environment-name></server-environment></notice>",
-         generate_xml({exception, error, mismatch, <<"Mismatch on right hand side">>, client_tests, 124123, [], {"http://localhost/test", "web", "index", [{"HTTP_AGENT", "Mozilla"}, {"SERVER_NAME", "localhost"}]}, "/srv/web"}, #state{environment = "Development", api_key = "12345678901234567890"}),
-         "Test generating xml with request and root"),
-    ok.
+-include_lib("eunit/include/eunit.hrl").
 
-test(A, B, Msg) ->
-    if
-        A =:= B ->
-            true;
-        true ->
-            io:format("~s failed.~n"
-                      "  Expected     ~p~n"
-                      "  But received ~p~n"
-                      "~n",
-                      [Msg, A, B]),
-            false
-    end.
+empty_stack_trace_test() ->
+    ?assertEqual([{line, [{file, "test"}, {number, 7}], []}],
+                 stacktrace_to_xml_struct([{undefined, undefined}, {test, 7}])),
+    ?assertEqual([{line, [{file, "test"}, {number, 7}], []},
+                  {line, [{file, unknown}, {number, 0}], []}],
+                 stacktrace_to_xml_struct([{undefined, undefined},
+                                           {undefined, undefined},
+                                           {test, 7}, 
+                                           {undefined, undefined}])),
+    ?assertEqual([{line, [{file, unknown}, {number, 0}], []}],
+                 stacktrace_to_xml_struct([{undefined, undefined},
+                                           {undefined, undefined},
+                                           {undefined, undefined}])).
+
+empty_stacktrace_list_test() ->
+    ?assertEqual([],
+                 stacktrace_to_xml_struct([])).
+
+simple_stacktrace_list_test() ->
+    ?assertEqual([{line, [{file, "test"}, {number, 7}], []}],
+                 stacktrace_to_xml_struct([{test, 7}])).
+
+%% Test the internal reformat of the provided CgiVars
+empty_test() ->
+    ?assertEqual([],
+                 vars_to_xml_struct([])).
+
+one_parameter_test1() ->
+    ?assertEqual([{var, [{key, "SERVER_NAME"}], ["localhost"]}],
+                 vars_to_xml_struct([{"SERVER_NAME", "localhost"}])).
+
+one_parameter_atom_test() ->
+    ?assertEqual([{var, [{key, "SERVER_NAME"}], ["localhost"]}],
+                 vars_to_xml_struct([{"SERVER_NAME", "localhost"}])).
+
+two_parameters_test() ->
+    ?assertEqual([{var, [{key, "SERVER_NAME"}], ["localhost"]},
+                  {var, [{key, "HTTP_USER_AGENT"}], ["Mozilla"]}
+                 ],
+                 vars_to_xml_struct([{"SERVER_NAME", "localhost"}, {"HTTP_USER_AGENT", "Mozilla"}])).
+
+%% generate_simple_xml_test() ->
+%%     ?assertEqual(
+%%        "<?xml version=\"1.0\"?>"
+%%        "<notice version=\"2.0\"><api-key>12345678901234567890</api-key><notifier><name>erlbrake</name><version>0.1</version><url>http://github.com/betawaffle/erlbrake</url></notifier><error><class>mismatch</class><message>Mismatch on right hand side</message><backtrace><line file=\"client_tests\" number=\"124123\"/></backtrace></error><server-environment><environment-name>Development</environment-name></server-environment></notice>",
+%%        generate_xml({exception, error, mismatch, "Mismatch on right hand side", client_tests, 124123, [], undefined, undefined}, #state{environment = "Development", api_key = "12345678901234567890"})).
+
+%% generate_xml_with_request_and_root_test() ->
+%%     ?assertEqual(
+%%        "<?xml version=\"1.0\"?>"
+%%        "<notice version=\"2.0\"><api-key>12345678901234567890</api-key><notifier><name>erlbrake</name><version>0.1</version><url>http://github.com/betawaffle/erlbrake</url></notifier><error><class>mismatch</class><message>Mismatch on right hand side</message><backtrace><line file=\"client_tests\" number=\"124123\"/></backtrace></error><request><url>http://localhost/test</url><component>web</component><action>index</action><cgi-data><var key=\"HTTP_AGENT\">Mozilla</var><var key=\"SERVER_NAME\">localhost</var></cgi-data></request><server-environment><project-root>/srv/web</project-root><environment-name>Development</environment-name></server-environment></notice>",
+%%        generate_xml({exception, error, mismatch, <<"Mismatch on right hand side">>, client_tests, 124123, [], {"http://localhost/test", "web", "index", [{"HTTP_AGENT", "Mozilla"}, {"SERVER_NAME", "localhost"}]}, "/srv/web"}, #state{environment = "Development", api_key = "12345678901234567890"})).
+
+-endif.

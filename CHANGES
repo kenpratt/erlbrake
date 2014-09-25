@@ -1,0 +1,7 @@
+2012/12/12 v0.3.1 
+- added notify api that accepts proplist argument
+- changed configuration parameter apikey to api_key (sorry) 
+- now uses record for notices internally to establish clearer mapping to airbrake_2_2.xsd
+- added types
+- improved rebar.config
+
